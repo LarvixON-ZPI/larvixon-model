@@ -6,10 +6,10 @@ from PIL import Image
 from torchvision import transforms
 
 class FrameDataset(Dataset):
-    def __init__(self, root_dir, num_of_frames=16,transform=None):
+    def __init__(self, root_dir, num_frames=16,transform=None):
         self.root_dir = root_dir
         self.transform = transform
-        self.num_frames = num_of_frames
+        self.num_frames = num_frames
         class_names = sorted(os.listdir(root_dir))
         self.class_to_idx = {class_name: idx for idx, class_name in enumerate(class_names)}
         self.samples = []
@@ -18,8 +18,8 @@ class FrameDataset(Dataset):
             class_dir = os.path.join(root_dir, class_name)
             if os.path.isdir(class_dir):
                 frame_paths = sorted(glob.glob(os.path.join(class_dir, "*.jpg")))
-                for i in range(0, len(frame_paths) - num_of_frames + 1, num_of_frames):
-                    self.samples.append(frame_paths[i:i + num_of_frames])
+                for i in range(0, len(frame_paths) - num_frames + 1, num_frames):
+                    self.samples.append(frame_paths[i:i + num_frames])
 
     def __len__(self):
         return len(self.samples)
