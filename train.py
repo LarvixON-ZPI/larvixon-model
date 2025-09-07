@@ -7,10 +7,10 @@ from model.cnn_lstm_model import CNNLSTM
 from tqdm import tqdm
 
 DATA_DIR = "data/"
-NUM_CLASSES = 3  
+NUM_CLASSES = 5  
 NUM_EPOCHS = 20
-BATCH_SIZE = 8
-NUM_FRAMES = 16
+BATCH_SIZE = 2
+NUM_FRAMES = 150
 LEARNING_RATE = 1e-4
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
