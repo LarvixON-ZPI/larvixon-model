@@ -9,9 +9,9 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 DATA_DIR = "data/"
-NUM_CLASSES = 3 
-NUM_FRAMES = 16
-BATCH_SIZE = 8
+NUM_CLASSES = 5 
+NUM_FRAMES = 150
+BATCH_SIZE = 2
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 transform = transforms.Compose([
