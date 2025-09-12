@@ -18,3 +18,23 @@ The model is trained using PyTorch on frame folders grouped by class.
 - Input frames into inference_frames/seq1 directory, in .png format
 - Set config variables in evaluate.py
 - run python evaluate.py
+
+## ⚙️ Configuration
+
+🔹 Variable Explanations
+
+- **FRAME_DIR** – path to a folder with frames for inference (prediction).
+
+- **DATA_DIR** – root folder containing the dataset used for training/validation, organized by class subfolders.
+
+- **BATCH_SIZE** – number of sequences processed in parallel during training/evaluation. Lower it if GPU memory is small (≤4 GB → use 1–2).
+
+- **NUM_FRAMES** – how many frames per sequence the model uses. Extra frames are cut, fewer frames are padded.
+
+- **NUM_CLASSES** – total number of classes (substances) to predict. Must match your dataset.
+
+- **MODEL_PATH** – file path where the trained model weights are saved/loaded.
+
+- **DEVICE** – automatically selects "cuda" if a GPU is available, otherwise "cpu".
+
+- **CLASS_NAMES** – list of human-readable class labels in the order they are mapped during training.
