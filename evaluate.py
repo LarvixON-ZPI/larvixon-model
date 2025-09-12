@@ -7,12 +7,8 @@ from model.cnn_lstm_model import CNNLSTM
 from sklearn.metrics import confusion_matrix, classification_report
 import seaborn as sns
 import matplotlib.pyplot as plt
+import config
 
-DATA_DIR = "data/"
-NUM_CLASSES = 5 
-NUM_FRAMES = 150
-BATCH_SIZE = 2
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 transform = transforms.Compose([
     transforms.Resize((112, 112)),
@@ -21,10 +17,10 @@ transform = transforms.Compose([
                          [0.229, 0.224, 0.225])
 ])
 
-dataset = FrameDataset(DATA_DIR, num_frames=NUM_FRAMES, transform=transform)
-loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False)
+dataset = FrameDataset(config.FRAME_DIR, num_frames=config.NUM_FRAMES, transform=transform)
+loader = DataLoader(dataset, batch_size=config.BATCH_SIZE, shuffle=False)
 
-model = CNNLSTM(num_classes=NUM_CLASSES).to(DEVICE)
+model = CNNLSTM(num_classes=config.NUM_CLASSES).to(config.DEVICE)
 model.load_state_dict(torch.load("cnn_lstm.pt"))
 model.eval()
 
@@ -33,7 +29,7 @@ all_labels = []
 
 with torch.no_grad():
     for frames, labels in loader:
-        frames = frames.to(DEVICE)
+        frames = frames.to(config.DEVICE)
         outputs = model(frames)
         preds = outputs.argmax(dim=1).cpu()
         all_preds.extend(preds.tolist())
