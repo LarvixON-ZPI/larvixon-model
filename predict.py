@@ -7,9 +7,10 @@ from model.cnn_lstm_model import CNNLSTM
 
 FRAME_DIR = "inference_frames/seq1"   
 NUM_FRAMES = 16
-NUM_CLASSES = 3
+NUM_CLASSES = 5
 MODEL_PATH = "cnn_lstm.pt"
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+class_names = ['Cocaine', 'Ethanol', 'Ketamine', 'Morphine', 'Tetrodotoxin']
 
 transform = transforms.Compose([
     transforms.Resize((112, 112)),
@@ -37,6 +38,10 @@ input_tensor = torch.stack(frames).unsqueeze(0).to(DEVICE)
 
 with torch.no_grad():
     output = model(input_tensor)
-    predicted_class = output.argmax(dim=1).item()
+    probs = torch.softmax(output, dim=1)    
+    probs = probs.squeeze().cpu().numpy()   
+    top = sorted(zip(class_names, probs), key=lambda x: -x[1])
+    for cls, p in top:
+        print(f"{cls}: {p*100:.2f}%")
 
-print(f"Predicted class: {predicted_class}")
+
