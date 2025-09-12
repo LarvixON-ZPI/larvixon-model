@@ -4,13 +4,14 @@ import torch
 from PIL import Image
 from torchvision import transforms
 from model.cnn_lstm_model import CNNLSTM
+import config
 
-FRAME_DIR = "inference_frames/seq1"   
-NUM_FRAMES = 16
-NUM_CLASSES = 5
-MODEL_PATH = "cnn_lstm.pt"
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-class_names = ['Cocaine', 'Ethanol', 'Ketamine', 'Morphine', 'Tetrodotoxin']
+FRAME_DIR = config.FRAME_DIR
+NUM_FRAMES = config.NUM_FRAMES
+NUM_CLASSES = config.NUM_CLASSES
+MODEL_PATH = config.MODEL_PATH
+DEVICE  = config.DEVICE
+class_names = config.CLASS_NAMES
 
 transform = transforms.Compose([
     transforms.Resize((112, 112)),
@@ -23,7 +24,7 @@ model = CNNLSTM(num_classes=NUM_CLASSES).to(DEVICE)
 model.load_state_dict(torch.load(MODEL_PATH))
 model.eval()
 
-frame_paths = sorted(glob.glob(os.path.join(FRAME_DIR, "*.pn    g")))[:NUM_FRAMES]
+frame_paths = sorted(glob.glob(os.path.join(FRAME_DIR, "*.png")))[:NUM_FRAMES]
 
 frames = []
 for fp in frame_paths:
