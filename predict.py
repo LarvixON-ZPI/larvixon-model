@@ -23,7 +23,7 @@ model = CNNLSTM(num_classes=NUM_CLASSES).to(DEVICE)
 model.load_state_dict(torch.load(MODEL_PATH))
 model.eval()
 
-frame_paths = sorted(glob.glob(os.path.join(FRAME_DIR, "*.jpg")))[:NUM_FRAMES]
+frame_paths = sorted(glob.glob(os.path.join(FRAME_DIR, "*.pn    g")))[:NUM_FRAMES]
 
 frames = []
 for fp in frame_paths:
