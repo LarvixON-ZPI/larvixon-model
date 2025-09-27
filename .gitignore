@@ -2,5 +2,4 @@ data/*
 mtdta/*
 *.pt
 inference_frames/*
-model/__pycache__/
 datasets/__pycache__/
