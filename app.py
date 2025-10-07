@@ -30,7 +30,7 @@ app = FastAPI(title="Larvae Injection Classification API")
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
-    with tempfile.TemporaryDirectory() as temp_dir:
+    with tempfile.TemporaryDirectory() as temp_dir: 
         video_path = os.path.join(temp_dir, "video.mp4")
         with open(video_path, "wb") as f:
             contents = await file.read()
