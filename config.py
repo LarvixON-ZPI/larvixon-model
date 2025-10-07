@@ -6,5 +6,7 @@ BATCH_SIZE = 2 # Adjust based on your GPU memory, dont go above 2 for <=4GB GPU 
 NUM_FRAMES = 150
 NUM_CLASSES = 5
 MODEL_PATH = "cnn_lstm.pt"
+LEARNING_RATE = 1e-4
+NUM_EPOCHS = 25
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 CLASS_NAMES = ['Cocaine', 'Ethanol', 'Ketamine', 'Morphine', 'Tetrodotoxin']

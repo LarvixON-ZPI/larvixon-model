@@ -5,14 +5,7 @@ from torchvision import transforms
 from datasets.frame_dataset import FrameDataset
 from model.cnn_lstm_model import CNNLSTM
 from tqdm import tqdm
-
-DATA_DIR = "data/"
-NUM_CLASSES = 5  
-NUM_EPOCHS = 20
-BATCH_SIZE = 2
-NUM_FRAMES = 150
-LEARNING_RATE = 1e-4
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+import config
 
 transform = transforms.Compose([
     transforms.Resize((112, 112)),
@@ -22,28 +15,28 @@ transform = transforms.Compose([
 ])
 from torch.utils.data import random_split
 
-dataset = FrameDataset(DATA_DIR, num_frames=NUM_FRAMES, transform=transform)
+dataset = FrameDataset(config.DATA_DIR, num_frames=config.NUM_FRAMES, transform=transform)
 
 total_size = len(dataset)
 val_size = int(0.2 * total_size)
 train_size = total_size - val_size
 
 train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
-train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
-val_loader   = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
+train_loader = DataLoader(train_dataset, batch_size=config.BATCH_SIZE, shuffle=True)
+val_loader   = DataLoader(val_dataset, batch_size=config.BATCH_SIZE, shuffle=False)
 
-train_loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
+train_loader = DataLoader(dataset, batch_size=config.BATCH_SIZE, shuffle=True)
 
-model = CNNLSTM(num_classes=NUM_CLASSES).to(DEVICE)
+model = CNNLSTM(num_classes=config.NUM_CLASSES).to(config.DEVICE)
 criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
+optimizer = torch.optim.Adam(model.parameters(), lr=config.LEARNING_RATE)
 
-for epoch in range(NUM_EPOCHS):
+for epoch in range(config.NUM_EPOCHS):
     model.train()
     running_loss = 0
 
-    for frames, labels in tqdm(train_loader, desc=f"Epoch {epoch+1}/{NUM_EPOCHS}"):
-        frames, labels = frames.to(DEVICE), labels.to(DEVICE)
+    for frames, labels in tqdm(train_loader, desc=f"Epoch {epoch+1}/{config.NUM_EPOCHS}"):
+        frames, labels = frames.to(config.DEVICE), labels.to(config.DEVICE)
 
         outputs = model(frames)
         loss = criterion(outputs, labels)
@@ -64,7 +57,7 @@ total = 0
 
 with torch.no_grad():
     for frames, labels in val_loader:
-        frames, labels = frames.to(DEVICE), labels.to(DEVICE)
+        frames, labels = frames.to(config.DEVICE), labels.to(config.DEVICE)
         outputs = model(frames)
         loss = criterion(outputs, labels)
         val_loss += loss.item()
