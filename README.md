@@ -21,6 +21,8 @@ The model is trained using PyTorch on frame folders grouped by class.
 
 ## ⚙️ Configuration
 
+For easy configuration copy the contents of `.env.example` into your own `.env` file and modify the variables as needed.
+
 🔹 Variable Explanations
 
 - **FRAME_DIR** – path to a folder with frames for inference (prediction).
@@ -38,3 +40,22 @@ The model is trained using PyTorch on frame folders grouped by class.
 - **DEVICE** – automatically selects "cuda" if a GPU is available, otherwise "cpu".
 
 - **CLASS_NAMES** – list of human-readable class labels in the order they are mapped during training.
+
+
+## 🐳 Docker Setup
+To build the docker image run one of the following commands
+```bash
+docker buildx build -t larvixon-model . 
+```
+```bash
+docker build -t larvixon-model .
+```
+
+To run the docker container with environment variables from a file:
+```bash
+docker run --env-file .env -p 8000:8000 larvixon-model
+```
+Alternatively, you can pass environment variables directly in the command:
+```bash
+docker run -e API_PORT=8000 -e MODEL_PATH=cnn_lstm.pt -p 8000:8000 larvixon-model
+```
