@@ -2,4 +2,12 @@ data/*
 mtdta/*
 *.pt
 inference_frames/*
-datasets/__pycache__/
+.env
+# Ignore Python bytecode caches (all folders named __pycache__ anywhere in the tree)
+__pycache__/
+**/__pycache__/
+
+# Ignore compiled Python files
+*.py[cod]
+*$py.class
+

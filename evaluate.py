@@ -10,18 +10,21 @@ import matplotlib.pyplot as plt
 import config
 
 
-transform = transforms.Compose([
-    transforms.Resize((112, 112)),
-    transforms.ToTensor(),
-    transforms.Normalize([0.485, 0.456, 0.406],
-                         [0.229, 0.224, 0.225])
-])
+transform = transforms.Compose(
+    [
+        transforms.Resize((112, 112)),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+    ]
+)
 
-dataset = FrameDataset(config.FRAME_DIR, num_frames=config.NUM_FRAMES, transform=transform)
+dataset = FrameDataset(
+    config.FRAME_DIR, num_frames=config.NUM_FRAMES, transform=transform
+)
 loader = DataLoader(dataset, batch_size=config.BATCH_SIZE, shuffle=False)
 
 model = CNNLSTM(num_classes=config.NUM_CLASSES).to(config.DEVICE)
-model.load_state_dict(torch.load("cnn_lstm.pt"))
+model.load_state_dict(torch.load(config.MODEL_PATH))
 model.eval()
 
 all_preds = []
