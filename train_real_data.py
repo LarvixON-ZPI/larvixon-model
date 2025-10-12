@@ -45,7 +45,18 @@ def list_s3_videos(bucket, prefix):
 
 def download_s3(bucket, key, dest_path):
     os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-    boto3.client("s3").download_file(bucket, key, dest_path)
+    # boto3.client("s3").download_file(bucket, key, dest_path)
+    s3 = boto3.client(
+        "s3",
+        endpoint_url="https://s3min2.e-science.pl",
+        aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
+        aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
+        region_name="us-east-1",
+    )
+
+    with open(dest_path, "wb") as f:
+        obj = s3.get_object(Bucket=bucket, Key=key)
+        f.write(obj["Body"].read())
 
 def sample_frame_indices(total_frames, num_frames):
     if total_frames <= 0:
