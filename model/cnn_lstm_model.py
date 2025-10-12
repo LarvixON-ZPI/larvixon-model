@@ -1,13 +1,13 @@
 import torch
 import torch.nn as nn
-from torchvision.models import resnet18
+from torchvision.models import resnet18, ResNet18_Weights
 
 
 class CNNLSTM(nn.Module):
     def __init__(self, num_classes, hidden_dim=256, lstm_layers=1):
         super(CNNLSTM, self).__init__()
 
-        base_cnn = resnet18(pretrained=True)
+        base_cnn = resnet18(weights=ResNet18_Weights.DEFAULT)
         self.cnn = nn.Sequential(*list(base_cnn.children())[:-1])
 
         self.feature_dim = 512
