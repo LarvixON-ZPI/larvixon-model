@@ -34,17 +34,23 @@ DISH_TO_CLASS = {
     2: "Ketamine",
     3: "Morphine",
     4: "Tetrodotoxin",
-    5: "Ethanol",       
+    5: "Ethanol",
+    6: "Ketamine",
+    7: "Morphine",
 }
+import json
+with open("roi_boxes.json") as f:
+    ROI_BOXES = [tuple(b) for b in json.load(f)]
 
-ROI_BOXES = [
-    (x1, y1, w1, h1),  # dish 0
-    (x2, y2, w2, h2),  # dish 1
-    (x3, y3, w3, h3),  # dish 2
-    (x4, y4, w4, h4),  # dish 3
-    (x5, y5, w5, h5),  # dihs 4
-    (x6, y6, w6, h6),  # dish 5
-]
+# this is the overall structure of ROI_BOXES
+# ROI_BOXES = [
+#     (x1, y1, w1, h1),  # dish 0
+#     (x2, y2, w2, h2),  # dish 1
+#     (x3, y3, w3, h3),  # dish 2
+#     (x4, y4, w4, h4),  # dish 3
+#     (x5, y5, w5, h5),  # dihs 4
+#     (x6, y6, w6, h6),  # dish 5
+# ]
 
 if len(CLASS_NAMES) != NUM_CLASSES:
     raise ValueError(

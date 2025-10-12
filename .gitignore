@@ -10,4 +10,6 @@ __pycache__/
 # Ignore compiled Python files
 *.py[cod]
 *$py.class
+# videos
+*.mov
 
