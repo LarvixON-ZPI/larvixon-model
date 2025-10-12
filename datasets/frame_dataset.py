@@ -25,7 +25,7 @@ class FrameDataset(Dataset):
             sequence_dirs = sorted(glob.glob(os.path.join(class_dir, "frames_*")))
             for seq_dir in sequence_dirs:
                 frame_paths = sorted(glob.glob(os.path.join(seq_dir, "*.png")))
-                if len(frame_paths) >= num_frames:
+                if len(frame_paths) >= num_frames - 1:
                     self.samples.append((frame_paths[:num_frames], self.class_to_idx[class_name]))
                     logger.debug(f"Added sequence: {seq_dir} with {len(frame_paths[:num_frames])} frames")
                 else:
