@@ -25,7 +25,13 @@ transform = transforms.Compose([
 ])
 
 def list_s3_videos(bucket, prefix):
-    s3 = boto3.client("s3")
+    s3 = boto3.client(
+            "s3",
+            endpoint_url="https://s3min2.e-science.pl",  
+            aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
+            aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
+            region_name="us-east-1"  
+    )
     token = None
     while True:
         kwargs = dict(Bucket=bucket, Prefix=prefix)
@@ -143,7 +149,7 @@ def main():
                 dish_to_class=config.DISH_TO_CLASS
             )
 
-            logger.info("[INFO] Training on this video’s generated sequences")
+            logger.info("Training on this videos generated sequences")
             nseq, acc = train_one_video(
                 model, optimizer,
                 data_dir=tmp_data,
