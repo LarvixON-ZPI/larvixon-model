@@ -7,7 +7,7 @@ load_dotenv()
 FRAME_DIR = os.getenv("FRAME_DIR", "inference_frames/seq1")
 DATA_DIR = os.getenv("DATA_DIR", "data/")
 BATCH_SIZE = int(os.getenv("BATCH_SIZE", "2"))  # Adjust based on your GPU memory
-NUM_FRAMES = int(os.getenv("NUM_FRAMES", "150"))
+NUM_FRAMES = int(os.getenv("NUM_FRAMES", "225"))
 NUM_CLASSES = int(os.getenv("NUM_CLASSES", "5"))
 MODEL_PATH = os.getenv("MODEL_PATH", "cnn_lstm.pt")
 LEARNING_RATE = float(os.getenv("LEARNING_RATE", "1e-4"))
