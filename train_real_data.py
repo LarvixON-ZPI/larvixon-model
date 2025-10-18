@@ -126,9 +126,9 @@ def detect_first_motion_frame_v2(cap, roi, max_check=500, low_thresh=3, high_thr
 
     return 0
 
-def detect_first_larva_frame(cap, roi, max_check=500, diff_thresh=25, 
-                             min_larva_pixels=50, max_larva_pixels=1000, 
-                             sustain_frames=5):
+def detect_first_larva_frame(cap, roi, max_check=500, diff_thresh=15, 
+                             min_larva_pixels=500, max_larva_pixels=3000, 
+                             sustain_frames=3):
     """
     Detects the first frame where a larva is present by analyzing the area of motion.
 
@@ -160,7 +160,7 @@ def detect_first_larva_frame(cap, roi, max_check=500, diff_thresh=25,
 
         roi_frame = frame[y:y+h, x:x+w]
         gray = cv2.cvtColor(roi_frame, cv2.COLOR_BGR2GRAY)
-        gray = cv2.GaussianBlur(gray, (21, 21), 0) # Blur to reduce noise
+        gray = cv2.GaussianBlur(gray, (21, 21), 0)
 
         if prev_gray is not None:
             frame_delta = cv2.absdiff(prev_gray, gray)
@@ -217,7 +217,7 @@ def extract_6_dishes_to_frame_folders(video_path, out_root, num_frames, roi_boxe
     start_offsets = []
     for roi in roi_boxes:
         cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-        start_offsets.append(detect_first_larva_frame(cap, roi, max_check=6000, diff_thresh=25, sustain_frames=5))
+        start_offsets.append(detect_first_larva_frame(cap, roi, max_check=4300, diff_thresh=15, sustain_frames=3))
     
     logger.info(f"Detected start offsets per dish: {start_offsets}")
 
