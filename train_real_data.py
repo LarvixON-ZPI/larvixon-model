@@ -16,6 +16,7 @@ from colored_logger import logger
 import config
 from datasets.frame_dataset import FrameDataset
 from model.cnn_lstm_model import CNNLSTM
+import pandas as pd
 
 transform = transforms.Compose([
     transforms.Resize((112, 112)),
@@ -23,6 +24,10 @@ transform = transforms.Compose([
     transforms.Normalize([0.485, 0.456, 0.406],
                          [0.229, 0.224, 0.225])
 ])
+
+def read_video_index():
+    df = pd.read_csv("video_index.csv")
+    return df
 
 def list_s3_videos(bucket, prefix):
     s3 = boto3.client(
@@ -33,12 +38,14 @@ def list_s3_videos(bucket, prefix):
             region_name="us-east-1"  
     )
     token = None
+    video_index = read_video_index()
     while True:
         kwargs = dict(Bucket=bucket, Prefix=prefix)
         if token: kwargs["ContinuationToken"] = token
         resp = s3.list_objects_v2(**kwargs)
         for obj in resp.get("Contents", []):
-            if obj["Key"].lower().endswith(".mov") and obj["Key"].startswith("L"):
+            logger.debug(f"Found S3 object: {obj['Key']}")
+            if obj["Key"].lower().endswith(".mov") and obj["Key"].startswith("L") and obj["Key"].split(".")[0] in video_index["Video name"].values:
                 yield obj["Key"]
         token = resp.get("NextContinuationToken")
         if not token: break
