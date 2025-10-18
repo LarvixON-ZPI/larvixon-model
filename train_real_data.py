@@ -63,17 +63,21 @@ def sample_frame_indices(total, num_frames, start=0):
     step = (total - start) // num_frames
     return [start + i * step for i in range(num_frames)]
 
-def detect_first_motion_frame(cap, roi, max_check=50, diff_thresh=15):
+def detect_first_motion_frame(cap, roi, max_check=100, diff_thresh=15):
+    logger.info(f"Detecting first motion frame in ROI: {roi}")
     x, y, w, h = roi
     prev_gray = None
     for i in range(max_check):
         ok, frame = cap.read()
         if not ok:
+            logger.warning(f"Failed to read frame {i} during motion detection")
             break
         gray = cv2.cvtColor(frame[y:y+h, x:x+w], cv2.COLOR_BGR2GRAY)
+        logger.debug(f"Motion detection frame {i} with mean pixel value {gray.mean()}")
         if prev_gray is not None:
             diff = cv2.absdiff(gray, prev_gray)
             mean_diff = diff.mean()
+            logger.debug(f"Frame {i} mean diff: {mean_diff}, diff_thresh: {diff_thresh}")
             if mean_diff > diff_thresh:
                 return i 
         prev_gray = gray
@@ -88,11 +92,13 @@ def extract_6_dishes_to_frame_folders(video_path, out_root, num_frames, roi_boxe
     os.makedirs(out_root, exist_ok=True)
     cap = cv2.VideoCapture(video_path)
     total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    logger.info(f"Video {video_path} has {total} frames.")
 
 
     stem = os.path.splitext(os.path.basename(video_path))[0]
     stem = os.path.splitext(os.path.basename(video_path))[0]
     lower_name = stem.lower()
+    logger.info(f"Inferring dish classes from video name: {stem}")
 
     for key, cname in dish_to_class.items():
         if cname.lower()[:3] in lower_name:  # this is to get ones that only hve ethanol
@@ -102,7 +108,9 @@ def extract_6_dishes_to_frame_folders(video_path, out_root, num_frames, roi_boxe
     start_offsets = []
     for roi in roi_boxes:
         cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-        start_offsets.append(detect_first_motion_frame(cap, roi))
+        start_offsets.append(detect_first_motion_frame(cap, roi, max_check=1000, diff_thresh=5))
+    
+    logger.info(f"Detected start offsets per dish: {start_offsets}")
 
 
     idxs_per_dish = [
@@ -110,6 +118,8 @@ def extract_6_dishes_to_frame_folders(video_path, out_root, num_frames, roi_boxe
         for k in range(len(roi_boxes))
     ]
     targets = []
+    logger.info(f"Writing frames to {out_root} ...")
+
     for k, roi in enumerate(roi_boxes):
         cls = dish_to_class[k]
         seq_dir = os.path.join(out_root, cls, f"frames_{stem}_dish{k}")
@@ -121,13 +131,17 @@ def extract_6_dishes_to_frame_folders(video_path, out_root, num_frames, roi_boxe
             cap.set(cv2.CAP_PROP_POS_FRAMES, fi)
             ok, frame = cap.read()
             if not ok:
+                logger.warning(f"Failed to read frame {fi} for dish {k}")
                 continue
             crop = frame[y:y+h, x:x+w]
             if crop.size == 0:
+                logger.warning(f"Empty crop for frame {fi} dish {k}")
                 continue
             out_path = os.path.join(targets[k], f"frame_{j:04d}.png")
+            logger.debug(f"Writing {out_path}")
             cv2.imwrite(out_path, crop)
     cap.release()
+    logger.info("Done writing frames.")
 
     return len(targets)
 
