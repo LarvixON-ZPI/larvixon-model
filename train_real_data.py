@@ -213,11 +213,14 @@ def extract_6_dishes_to_frame_folders(video_path, out_root, num_frames, roi_boxe
         if cname.lower()[:3] in lower_name:  # this is to get ones that only hve ethanol
             dish_to_class = {k: cname for k in dish_to_class}
             break
-
-    start_offsets = []
-    for roi in roi_boxes:
-        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-        start_offsets.append(detect_first_larva_frame(cap, roi, max_check=4300, diff_thresh=15, sustain_frames=3))
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    offset_seconds = [170.0,155.0,95.0, 60.0, 22.5, 0.0, 0.0, 0.0]
+    start_offsets = [int(s * fps) for s in offset_seconds]
+    
+    # start_offsets = []
+    # for roi in roi_boxes:
+    #     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+    #     start_offsets.append(detect_first_larva_frame(cap, roi, max_check=4300, diff_thresh=15, sustain_frames=3))
     
     logger.info(f"Detected start offsets per dish: {start_offsets}")
 

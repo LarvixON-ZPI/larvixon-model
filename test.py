@@ -4,7 +4,7 @@ from config import DISH_TO_CLASS as dish_to_class
 extract_6_dishes_to_frame_folders(
     "output.mov",
     "data/",
-    num_frames=600,
+    num_frames=200,
     roi_boxes=roi_boxes,
     dish_to_class=dish_to_class
 )
