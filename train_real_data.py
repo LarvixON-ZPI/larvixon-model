@@ -126,6 +126,72 @@ def detect_first_motion_frame_v2(cap, roi, max_check=500, low_thresh=3, high_thr
 
     return 0
 
+def detect_first_larva_frame(cap, roi, max_check=500, diff_thresh=25, 
+                             min_larva_pixels=50, max_larva_pixels=1000, 
+                             sustain_frames=5):
+    """
+    Detects the first frame where a larva is present by analyzing the area of motion.
+
+    It ignores very large motion (hands) and very small motion (noise).
+
+    Args:
+        cap: The video capture object.
+        roi: A tuple (x, y, w, h) defining the region of interest.
+        max_check: Maximum number of frames to check.
+        diff_thresh: Threshold for pixel difference to be considered motion (0-255).
+        min_larva_pixels: The minimum number of changed pixels to be considered larva motion.
+        max_larva_pixels: The maximum number of changed pixels. Above this is a hand.
+        sustain_frames: How many consecutive frames motion must be sustained.
+    """
+    logger.info(f"Detecting first larva frame with pixel counting...")
+    
+    x, y, w, h = roi
+    prev_gray = None
+    motion_streak = 0
+    hand_detected_recently = False 
+
+    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+
+    for i in range(max_check):
+        ok, frame = cap.read()
+        if not ok:
+            logger.warning("Could not read frame from video.")
+            break
+
+        roi_frame = frame[y:y+h, x:x+w]
+        gray = cv2.cvtColor(roi_frame, cv2.COLOR_BGR2GRAY)
+        gray = cv2.GaussianBlur(gray, (21, 21), 0) # Blur to reduce noise
+
+        if prev_gray is not None:
+            frame_delta = cv2.absdiff(prev_gray, gray)
+
+            thresh = cv2.threshold(frame_delta, diff_thresh, 255, cv2.THRESH_BINARY)[1]
+
+            pixel_change_count = cv2.countNonZero(thresh)
+
+            if pixel_change_count > max_larva_pixels:
+                motion_streak = 0
+                hand_detected_recently = True
+                logger.info(f"Frame {i}: Large motion detected ({pixel_change_count} pixels). Assuming hand, resetting.")
+            
+            elif hand_detected_recently and pixel_change_count < min_larva_pixels:
+                hand_detected_recently = False
+                logger.info(f"Frame {i}: Scene stabilizing after hand.")
+
+            elif not hand_detected_recently and pixel_change_count >= min_larva_pixels:
+                motion_streak += 1
+                logger.info(f"Frame {i}: Potential larva motion detected ({pixel_change_count} pixels). Streak: {motion_streak}/{sustain_frames}")
+                if motion_streak >= sustain_frames:
+                    start_frame = max(0, i - sustain_frames + 1)
+                    logger.info(f"Sustained larva motion detected! Start frame is ~{start_frame}")
+                    return start_frame
+            else:
+                motion_streak = 0
+
+        prev_gray = gray
+
+    logger.warning("No sustained larva motion found within the first max_check frames.")
+    return 0 
 
 def extract_6_dishes_to_frame_folders(video_path, out_root, num_frames, roi_boxes, dish_to_class):
     """
@@ -151,7 +217,7 @@ def extract_6_dishes_to_frame_folders(video_path, out_root, num_frames, roi_boxe
     start_offsets = []
     for roi in roi_boxes:
         cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-        start_offsets.append(detect_first_motion_frame_v2(cap, roi, max_check=6000, low_thresh=3, high_thresh=25, sustain_frames=10))
+        start_offsets.append(detect_first_larva_frame(cap, roi, max_check=6000, diff_thresh=25, sustain_frames=5))
     
     logger.info(f"Detected start offsets per dish: {start_offsets}")
 
