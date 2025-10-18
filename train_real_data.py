@@ -45,7 +45,6 @@ def list_s3_videos(bucket, prefix):
 
 def download_s3(bucket, key, dest_path):
     os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-    # boto3.client("s3").download_file(bucket, key, dest_path)
     s3 = boto3.client(
         "s3",
         endpoint_url="https://s3min2.e-science.pl",
