@@ -29,14 +29,14 @@ CHECKPOINT_PATH = "cnn_lstm_checkpoint.pt"
 
 
 DISH_TO_CLASS = {
-    0: "Cocaine",
-    1: "Ethanol",
-    2: "Ketamine",
-    3: "Morphine",
-    4: "Tetrodotoxin",
-    5: "Ethanol",
-    6: "Ketamine",
-    7: "Morphine",
+    0: "Nothing",
+    1: "Nothing",
+    2: "Water (H2O)",
+    3: "Water (H2O)",
+    4: "Ethanol 50%",
+    5: "Ethanol 50%",
+    6: "Redbull",
+    7: "Redbull",
 }
 import json
 with open("roi_boxes.json") as f:
