@@ -76,6 +76,14 @@ def extract_6_dishes_to_frame_folders(video_path, out_root, num_frames, roi_boxe
     idxs = sample_frame_indices(total, num_frames)
 
     stem = os.path.splitext(os.path.basename(video_path))[0]
+    stem = os.path.splitext(os.path.basename(video_path))[0]
+    lower_name = stem.lower()
+
+    for key, cname in dish_to_class.items():
+        if cname.lower()[:3] in lower_name:  # e.g., "eth" in "trial1_ETH"
+            dish_to_class = {k: cname for k in dish_to_class}
+            break
+
     targets = []
     for k, roi in enumerate(roi_boxes):
         cls = dish_to_class[k]
