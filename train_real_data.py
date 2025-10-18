@@ -65,6 +65,23 @@ def sample_frame_indices(total_frames, num_frames):
     
     return sorted({int(round(i)) for i in np.linspace(0, total_frames - 1, num_frames)})
 
+def detect_first_motion_frame(cap, roi, max_check=50, diff_thresh=15):
+    x, y, w, h = roi
+    prev_gray = None
+    for i in range(max_check):
+        ok, frame = cap.read()
+        if not ok:
+            break
+        gray = cv2.cvtColor(frame[y:y+h, x:x+w], cv2.COLOR_BGR2GRAY)
+        if prev_gray is not None:
+            diff = cv2.absdiff(gray, prev_gray)
+            mean_diff = diff.mean()
+            if mean_diff > diff_thresh:
+                return i 
+        prev_gray = gray
+    return 0
+
+
 def extract_6_dishes_to_frame_folders(video_path, out_root, num_frames, roi_boxes, dish_to_class):
     """
     Writes frames into: out_root/<ClassName>/frames_<video-stem>_dishK/frame_XXXX.png
@@ -80,7 +97,7 @@ def extract_6_dishes_to_frame_folders(video_path, out_root, num_frames, roi_boxe
     lower_name = stem.lower()
 
     for key, cname in dish_to_class.items():
-        if cname.lower()[:3] in lower_name:  # e.g., "eth" in "trial1_ETH"
+        if cname.lower()[:3] in lower_name:  # this is to get ones that only hve ethanol
             dish_to_class = {k: cname for k in dish_to_class}
             break
 
