@@ -63,8 +63,9 @@ def sample_frame_indices(total, num_frames, start=0):
     step = (total - start) // num_frames
     return [start + i * step for i in range(num_frames)]
 
-def detect_first_motion_frame(cap, roi, max_check=100, diff_thresh=15):
-    logger.info(f"Detecting first motion frame in ROI: {roi}")
+def detect_first_motion_frame(cap, roi, max_check=100, diff_thresh=7, max_diff=100):
+    logger.info(f"Detecting first motion frame in ROI: {roi} with max_check={max_check}, diff_thresh={diff_thresh}, max_diff={max_diff}")
+    max_val_found = 0
     x, y, w, h = roi
     prev_gray = None
     for i in range(max_check):
@@ -78,9 +79,51 @@ def detect_first_motion_frame(cap, roi, max_check=100, diff_thresh=15):
             diff = cv2.absdiff(gray, prev_gray)
             mean_diff = diff.mean()
             logger.debug(f"Frame {i} mean diff: {mean_diff}, diff_thresh: {diff_thresh}")
-            if mean_diff > diff_thresh:
+            if max_val_found < mean_diff:
+                max_val_found = mean_diff
+
+            if mean_diff > diff_thresh and mean_diff < max_diff and gray.mean() < 10:
+                logger.info(f"Detected motion at frame {i} with mean diff {mean_diff}")
                 return i 
         prev_gray = gray
+    logger.info(f"No significant motion detected within {max_check} frames. Max diff found: {max_val_found}")
+    return 0
+
+def detect_first_motion_frame_v2(cap, roi, max_check=500, low_thresh=3, high_thresh=25, sustain_frames=5):
+    """
+    Detect first frame where motion inside ROI exceeds low_thresh for
+    several consecutive frames, but ignore very strong spikes (hands).
+    """
+    logger.info(f"Detecting first motion frame (v2) in ROI: {roi} with max_check={max_check}, low_thresh={low_thresh}, high_thresh={high_thresh}, sustain_frames={sustain_frames}")
+    x, y, w, h = roi
+    prev_gray = None
+    motion_streak = 0
+
+    for i in range(max_check):
+        ok, frame = cap.read()
+        if not ok:
+            break
+
+        gray = cv2.cvtColor(frame[y:y+h, x:x+w], cv2.COLOR_BGR2GRAY)
+
+        if prev_gray is not None:
+            diff = cv2.absdiff(gray, prev_gray)
+            mean_diff = diff.mean()
+
+            if mean_diff > high_thresh:
+                motion_streak = 0
+                continue
+
+            if mean_diff > low_thresh:
+                motion_streak += 1
+                if motion_streak >= sustain_frames:
+                    logger.info(f"Detected sustained motion starting at frame {i - sustain_frames + 1}")
+                    return max(0, i - sustain_frames)
+            else:
+                motion_streak = 0
+
+        prev_gray = gray
+
     return 0
 
 
@@ -108,7 +151,7 @@ def extract_6_dishes_to_frame_folders(video_path, out_root, num_frames, roi_boxe
     start_offsets = []
     for roi in roi_boxes:
         cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-        start_offsets.append(detect_first_motion_frame(cap, roi, max_check=1000, diff_thresh=5))
+        start_offsets.append(detect_first_motion_frame_v2(cap, roi, max_check=6000, low_thresh=3, high_thresh=25, sustain_frames=10))
     
     logger.info(f"Detected start offsets per dish: {start_offsets}")
 
