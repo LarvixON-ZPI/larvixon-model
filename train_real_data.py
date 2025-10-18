@@ -57,13 +57,11 @@ def download_s3(bucket, key, dest_path):
         obj = s3.get_object(Bucket=bucket, Key=key)
         f.write(obj["Body"].read())
 
-def sample_frame_indices(total_frames, num_frames):
-    if total_frames <= 0:
-        return []
-    if total_frames <= num_frames:
-        return list(range(total_frames))
-    
-    return sorted({int(round(i)) for i in np.linspace(0, total_frames - 1, num_frames)})
+def sample_frame_indices(total, num_frames, start=0):
+    if total <= num_frames:
+        return list(range(start, total))
+    step = (total - start) // num_frames
+    return [start + i * step for i in range(num_frames)]
 
 def detect_first_motion_frame(cap, roi, max_check=50, diff_thresh=15):
     x, y, w, h = roi
@@ -90,7 +88,7 @@ def extract_6_dishes_to_frame_folders(video_path, out_root, num_frames, roi_boxe
     os.makedirs(out_root, exist_ok=True)
     cap = cv2.VideoCapture(video_path)
     total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    idxs = sample_frame_indices(total, num_frames)
+
 
     stem = os.path.splitext(os.path.basename(video_path))[0]
     stem = os.path.splitext(os.path.basename(video_path))[0]
@@ -101,6 +99,16 @@ def extract_6_dishes_to_frame_folders(video_path, out_root, num_frames, roi_boxe
             dish_to_class = {k: cname for k in dish_to_class}
             break
 
+    start_offsets = []
+    for roi in roi_boxes:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+        start_offsets.append(detect_first_motion_frame(cap, roi))
+
+
+    idxs_per_dish = [
+        sample_frame_indices(total - start_offsets[k], num_frames, start=start_offsets[k])
+        for k in range(len(roi_boxes))
+    ]
     targets = []
     for k, roi in enumerate(roi_boxes):
         cls = dish_to_class[k]
@@ -108,12 +116,12 @@ def extract_6_dishes_to_frame_folders(video_path, out_root, num_frames, roi_boxe
         os.makedirs(seq_dir, exist_ok=True)
         targets.append(seq_dir)
 
-    for j, fi in enumerate(idxs):
-        cap.set(cv2.CAP_PROP_POS_FRAMES, fi)
-        ok, frame = cap.read()
-        if not ok:
-            continue
-        for k, (x, y, w, h) in enumerate(roi_boxes):
+    for k, (x, y, w, h) in enumerate(roi_boxes):
+        for j, fi in enumerate(idxs_per_dish[k]):
+            cap.set(cv2.CAP_PROP_POS_FRAMES, fi)
+            ok, frame = cap.read()
+            if not ok:
+                continue
             crop = frame[y:y+h, x:x+w]
             if crop.size == 0:
                 continue
