@@ -209,7 +209,7 @@ def extract_6_dishes_to_frame_folders(video_path, out_root, num_frames, roi_boxe
 
     if "etoh" in lower_name:  # this is to get ones that only hve ethanol
         name_data = lower_name.split("_")
-        strength = int(name_data[3]) if len(name_data) > 1 else 50
+        strength = float(name_data[3]) if len(name_data) > 1 and name_data[3].replace('.', '', 1).isdigit() else 50.0
         # logger.info(f"Detected 'etoh' in filename, assigning all dishes to Ethanol {name_data[3]}%")
         logger.info(f"Detected 'etoh' in filename, assigning all dishes to Ethanol {strength}%")
         cname = "Ethanol"
