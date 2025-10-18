@@ -193,7 +193,7 @@ def detect_first_larva_frame(cap, roi, max_check=500, diff_thresh=15,
     logger.warning("No sustained larva motion found within the first max_check frames.")
     return 0 
 
-def extract_6_dishes_to_frame_folders(video_path, out_root, num_frames, roi_boxes, dish_to_class):
+def extract_8_dishes_to_frame_folders(video_path, out_root, num_frames, roi_boxes, dish_to_class):
     """
     Writes frames into: out_root/<ClassName>/frames_<video-stem>_dishK/frame_XXXX.png
     Returns total sequences written.
@@ -210,7 +210,6 @@ def extract_6_dishes_to_frame_folders(video_path, out_root, num_frames, roi_boxe
     if "etoh" in lower_name:  # this is to get ones that only hve ethanol
         name_data = lower_name.split("_")
         strength = float(name_data[3]) if len(name_data) > 1 and name_data[3].replace('.', '', 1).isdigit() else 50.0
-        # logger.info(f"Detected 'etoh' in filename, assigning all dishes to Ethanol {name_data[3]}%")
         logger.info(f"Detected 'etoh' in filename, assigning all dishes to Ethanol {strength}%")
         cname = "Ethanol"
         cname_full = f"{cname} {strength}%"
@@ -312,8 +311,8 @@ def main():
             logger.info(f"Downloading s3://{config.S3_BUCKET}/{key}")
             download_s3(config.S3_BUCKET, key, local_mp4)
 
-            logger.info("Extracting 6 dishes to frame folders")
-            extract_6_dishes_to_frame_folders(
+            logger.info("Extracting 8 dishes to frame folders")
+            extract_8_dishes_to_frame_folders(
                 video_path=local_mp4,
                 out_root=tmp_data,
                 num_frames=config.NUM_FRAMES,
