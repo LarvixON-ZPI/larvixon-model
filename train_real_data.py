@@ -38,7 +38,7 @@ def list_s3_videos(bucket, prefix):
         if token: kwargs["ContinuationToken"] = token
         resp = s3.list_objects_v2(**kwargs)
         for obj in resp.get("Contents", []):
-            if obj["Key"].lower().endswith(".mp4"):
+            if obj["Key"].lower().endswith(".mov") and obj["Key"].startswith("L"):
                 yield obj["Key"]
         token = resp.get("NextContinuationToken")
         if not token: break
@@ -203,16 +203,19 @@ def extract_6_dishes_to_frame_folders(video_path, out_root, num_frames, roi_boxe
     total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     logger.info(f"Video {video_path} has {total} frames.")
 
-
     stem = os.path.splitext(os.path.basename(video_path))[0]
-    stem = os.path.splitext(os.path.basename(video_path))[0]
-    lower_name = stem.lower()
-    logger.info(f"Inferring dish classes from video name: {stem}")
+    lower_name = os.path.splitext(os.path.basename(video_path))[0].lower()
+    logger.info(f"Inferring dish classes from video name: {lower_name}")
 
-    for key, cname in dish_to_class.items():
-        if cname.lower()[:3] in lower_name:  # this is to get ones that only hve ethanol
-            dish_to_class = {k: cname for k in dish_to_class}
-            break
+    if "etoh" in lower_name:  # this is to get ones that only hve ethanol
+        name_data = lower_name.split("_")
+        strength = int(name_data[3]) if len(name_data) > 1 else 50
+        # logger.info(f"Detected 'etoh' in filename, assigning all dishes to Ethanol {name_data[3]}%")
+        logger.info(f"Detected 'etoh' in filename, assigning all dishes to Ethanol {strength}%")
+        cname = "Ethanol"
+        cname_full = f"{cname} {strength}%"
+        dish_to_class = {k: cname_full for k in dish_to_class}
+
     fps = cap.get(cv2.CAP_PROP_FPS)
     offset_seconds = [170.0,155.0,95.0, 60.0, 22.5, 0.0, 0.0, 0.0]
     start_offsets = [int(s * fps) for s in offset_seconds]
