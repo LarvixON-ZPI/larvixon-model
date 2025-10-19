@@ -18,7 +18,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 API_HOST = os.getenv("API_HOST", "0.0.0.0")
 API_PORT = int(os.getenv("API_PORT", "8000"))
 
-_default_classes = "ethanol,cocaine,ketamine,morphine,tetrodotoxin"
+_default_classes = "Nothing, Water (H2O), Ethanol 50%, Redbull, Ethanol 6.5%"
 CLASS_NAMES = os.getenv("CLASS_NAMES", _default_classes).split(",")
 
 S3_BUCKET = "s3min-adam.junka-1744366756"
