@@ -1,8 +1,8 @@
 import cv2
 import json
 
-VIDEO_PATH = "L_RL_2025_09_25_49.mov"   
-OUTPUT_FILE = "roi_boxes.json"     
+VIDEO_PATH = "L_RL_2025_09_25_49.mov"
+OUTPUT_FILE = "roi_boxes.json"
 
 cap = cv2.VideoCapture(VIDEO_PATH)
 ret, frame = cap.read()
@@ -14,7 +14,7 @@ if not ret:
 rois = cv2.selectROIs("Select ROIs", frame, showCrosshair=True, fromCenter=False)
 cv2.destroyAllWindows()
 
-roi_boxes = [tuple(map(int, r)) for r in rois] 
+roi_boxes = [tuple(map(int, r)) for r in rois]
 
 print(f"Selected {len(roi_boxes)} ROIs:")
 for i, (x, y, w, h) in enumerate(roi_boxes):
@@ -22,4 +22,3 @@ for i, (x, y, w, h) in enumerate(roi_boxes):
 
 with open(OUTPUT_FILE, "w") as f:
     json.dump(roi_boxes, f, indent=2)
-

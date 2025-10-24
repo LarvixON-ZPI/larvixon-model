@@ -9,7 +9,7 @@ DATA_DIR = os.getenv("DATA_DIR", "data/")
 BATCH_SIZE = int(os.getenv("BATCH_SIZE", "2"))  # Adjust based on your GPU memory
 NUM_FRAMES = int(os.getenv("NUM_FRAMES", "225"))
 NUM_CLASSES = int(os.getenv("NUM_CLASSES", "5"))
-MODEL_PATH = os.getenv("MODEL_PATH", "cnn_lstm.pt")
+MODEL_PATH = os.getenv("MODEL_PATH", "models/cnn_lstm.pt")
 LEARNING_RATE = float(os.getenv("LEARNING_RATE", "1e-4"))
 NUM_EPOCHS = int(os.getenv("NUM_EPOCHS", "25"))
 EPOCHS_PER_VIDEO = int(os.getenv("EPOCHS_PER_VIDEO", "3"))
@@ -24,8 +24,8 @@ CLASS_NAMES = os.getenv("CLASS_NAMES", _default_classes).split(",")
 S3_BUCKET = "s3min-adam.junka-1744366756"
 S3_PREFIX = ""
 
-SAVE_PATH = "cnn_lstm_final.pt"
-CHECKPOINT_PATH = "cnn_lstm_checkpoint.pt"
+SAVE_PATH = "models/cnn_lstm_final.pt"
+CHECKPOINT_PATH = "models/cnn_lstm_checkpoint.pt"
 
 
 DISH_TO_CLASS = {
@@ -39,6 +39,7 @@ DISH_TO_CLASS = {
     7: "Redbull",
 }
 import json
+
 with open("roi_boxes.json") as f:
     ROI_BOXES = [tuple(b) for b in json.load(f)]
 

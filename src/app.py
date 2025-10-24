@@ -6,9 +6,9 @@ import torch.nn.functional as F
 from fastapi import FastAPI, UploadFile, File
 from PIL import Image
 from torchvision import transforms
-from model.cnn_lstm_model import CNNLSTM
-from utils import video_to_fixed_frames
-from config import NUM_FRAMES, NUM_CLASSES, MODEL_PATH, DEVICE, CLASS_NAMES
+from src.models.cnn_lstm_model import CNNLSTM
+from src.utils.video_utils import video_to_fixed_frames
+from src.config import NUM_FRAMES, NUM_CLASSES, MODEL_PATH, DEVICE, CLASS_NAMES
 
 
 transform = transforms.Compose(

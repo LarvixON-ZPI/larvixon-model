@@ -1,13 +1,12 @@
 import torch
-import torch.nn as nn
 from torch.utils.data import DataLoader
 from torchvision import transforms
-from datasets.frame_dataset import FrameDataset
-from model.cnn_lstm_model import CNNLSTM
+from src.datasets.frame_dataset import FrameDataset
+from src.models.cnn_lstm_model import CNNLSTM
 from sklearn.metrics import confusion_matrix, classification_report
 import seaborn as sns
 import matplotlib.pyplot as plt
-import config
+import src.config as config
 
 
 transform = transforms.Compose(

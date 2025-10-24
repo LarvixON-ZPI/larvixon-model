@@ -1,7 +1,8 @@
 import cv2
 import os
 import numpy as np
-from colored_logger import logger
+from src.utils.logger import logger
+
 
 def video_to_fixed_frames(video_path, output_dir, num_frames, prefix="frame"):
     """

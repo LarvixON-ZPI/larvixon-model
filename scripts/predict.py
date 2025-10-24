@@ -3,14 +3,14 @@ import glob
 import torch
 from PIL import Image
 from torchvision import transforms
-from model.cnn_lstm_model import CNNLSTM
-import config
+from src.models.cnn_lstm_model import CNNLSTM
+import src.config as config
 
 FRAME_DIR = config.FRAME_DIR
 NUM_FRAMES = config.NUM_FRAMES
 NUM_CLASSES = config.NUM_CLASSES
 MODEL_PATH = config.MODEL_PATH
-DEVICE  = config.DEVICE
+DEVICE = config.DEVICE
 class_names = config.CLASS_NAMES
 
 transform = transforms.Compose([
@@ -35,14 +35,12 @@ for fp in frame_paths:
 while len(frames) < NUM_FRAMES:
     frames.append(torch.zeros_like(frames[0]))
 
-input_tensor = torch.stack(frames).unsqueeze(0).to(DEVICE)  
+input_tensor = torch.stack(frames).unsqueeze(0).to(DEVICE)
 
 with torch.no_grad():
     output = model(input_tensor)
-    probs = torch.softmax(output, dim=1)    
-    probs = probs.squeeze().cpu().numpy()   
+    probs = torch.softmax(output, dim=1)
+    probs = probs.squeeze().cpu().numpy()
     top = sorted(zip(class_names, probs), key=lambda x: -x[1])
     for cls, p in top:
         print(f"{cls}: {p*100:.2f}%")
-
-

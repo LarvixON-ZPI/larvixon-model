@@ -14,19 +14,19 @@ class CNNLSTM(nn.Module):
             input_size=self.feature_dim,
             hidden_size=hidden_dim,
             num_layers=lstm_layers,
-            batch_first=True
+            batch_first=True,
         )
 
         self.classifier = nn.Linear(hidden_dim, num_classes)
 
-    def forward(self, x):  
+    def forward(self, x):
         B, T, C, H, W = x.size()
-        x = x.view(B * T, C, H, W)            
-        features = self.cnn(x).squeeze()      
+        x = x.view(B * T, C, H, W)
+        features = self.cnn(x).squeeze()
 
-        features = features.view(B, T, -1)   
-        lstm_out, _ = self.lstm(features)   
-        last_output = lstm_out[:, -1, :]   
+        features = features.view(B, T, -1)
+        lstm_out, _ = self.lstm(features)
+        last_output = lstm_out[:, -1, :]
 
         out = self.classifier(last_output)
         return out
