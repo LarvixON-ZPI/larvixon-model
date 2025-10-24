@@ -17,9 +17,7 @@ transform = transforms.Compose(
     ]
 )
 
-dataset = FrameDataset(
-    config.FRAME_DIR, num_frames=config.NUM_FRAMES, transform=transform
-)
+dataset = FrameDataset(config.FRAME_DIR, num_frames=config.NUM_FRAMES, transform=transform)
 loader = DataLoader(dataset, batch_size=config.BATCH_SIZE, shuffle=False)
 
 model = CNNLSTM(num_classes=config.NUM_CLASSES).to(config.DEVICE)

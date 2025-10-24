@@ -38,9 +38,7 @@ async def predict(file: UploadFile = File(...)):
         video_to_fixed_frames(video_path, frames_dir, NUM_FRAMES)
 
         frames = []
-        frame_files = sorted(
-            [f for f in os.listdir(frames_dir) if f.endswith((".jpg", ".png"))]
-        )
+        frame_files = sorted([f for f in os.listdir(frames_dir) if f.endswith((".jpg", ".png"))])
 
         for fname in frame_files[:NUM_FRAMES]:
             img_path = os.path.join(frames_dir, fname)
@@ -49,9 +47,7 @@ async def predict(file: UploadFile = File(...)):
             frames.append(img)
 
         while len(frames) < NUM_FRAMES:
-            frames.append(
-                torch.zeros_like(frames[0]) if frames else torch.zeros(3, 112, 112)
-            )
+            frames.append(torch.zeros_like(frames[0]) if frames else torch.zeros(3, 112, 112))
 
         input_tensor = torch.stack(frames).unsqueeze(0).to(DEVICE)
 
