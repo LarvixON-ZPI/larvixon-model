@@ -1,4 +1,6 @@
 import os
+import sys
+sys.path.append(".")
 import cv2
 import boto3
 import torch
@@ -19,6 +21,7 @@ transform = transforms.Compose(
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
     ]
 )
+
 
 def read_video_index():
     df = pd.read_csv("video_index.csv")
@@ -248,11 +251,11 @@ def extract_8_dishes_to_frame_folders(
     lower_name = os.path.splitext(os.path.basename(video_path))[0].lower()
     logger.info(f"Inferring dish classes from video name: {lower_name}")
 
-        if "etoh" in lower_name:  # this is to get ones that only hve ethanol
-            logger.info(
-                f"Detected 'etoh' in filename, assigning ethanol dishes to Ethanol"
-            )
-            dish_to_class = {k: ("Ethanol" if v.startswith("Ethanol") else v) for k, v in dish_to_class.items()}
+    if "etoh" in lower_name:  # this is to get ones that only hve ethanol
+        logger.info(
+            f"Detected 'etoh' in filename, assigning ethanol dishes to Ethanol"
+        )
+        dish_to_class = {k: ("Ethanol" if v.startswith("Ethanol") else v) for k, v in dish_to_class.items()}
 
     fps = cap.get(cv2.CAP_PROP_FPS)
     offset_seconds = [170.0, 155.0, 95.0, 60.0, 22.5, 0.0, 0.0, 0.0]
