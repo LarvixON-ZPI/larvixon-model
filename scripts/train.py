@@ -16,9 +16,7 @@ transform = transforms.Compose(
     ]
 )
 
-dataset = FrameDataset(
-    config.DATA_DIR, num_frames=config.NUM_FRAMES, transform=transform
-)
+dataset = FrameDataset(config.DATA_DIR, num_frames=config.NUM_FRAMES, transform=transform)
 
 total_size = len(dataset)
 val_size = int(0.2 * total_size)
@@ -38,9 +36,7 @@ for epoch in range(config.NUM_EPOCHS):
     model.train()
     running_loss = 0
 
-    for frames, labels in tqdm(
-        train_loader, desc=f"Epoch {epoch+1}/{config.NUM_EPOCHS}"
-    ):
+    for frames, labels in tqdm(train_loader, desc=f"Epoch {epoch+1}/{config.NUM_EPOCHS}"):
         frames, labels = frames.to(config.DEVICE), labels.to(config.DEVICE)
 
         outputs = model(frames)

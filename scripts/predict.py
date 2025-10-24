@@ -13,12 +13,13 @@ MODEL_PATH = config.MODEL_PATH
 DEVICE = config.DEVICE
 class_names = config.CLASS_NAMES
 
-transform = transforms.Compose([
-    transforms.Resize((112, 112)),
-    transforms.ToTensor(),
-    transforms.Normalize([0.485, 0.456, 0.406],
-                         [0.229, 0.224, 0.225])
-])
+transform = transforms.Compose(
+    [
+        transforms.Resize((112, 112)),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+    ]
+)
 
 model = CNNLSTM(num_classes=NUM_CLASSES).to(DEVICE)
 model.load_state_dict(torch.load(MODEL_PATH))

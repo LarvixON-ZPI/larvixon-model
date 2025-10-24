@@ -20,7 +20,6 @@ transform = transforms.Compose(
     ]
 )
 
-
 def read_video_index():
     df = pd.read_csv("video_index.csv")
     return df
@@ -249,19 +248,11 @@ def extract_8_dishes_to_frame_folders(
     lower_name = os.path.splitext(os.path.basename(video_path))[0].lower()
     logger.info(f"Inferring dish classes from video name: {lower_name}")
 
-    if "etoh" in lower_name:  # this is to get ones that only hve ethanol
-        name_data = lower_name.split("_")
-        strength = (
-            float(name_data[3])
-            if len(name_data) > 1 and name_data[3].replace(".", "", 1).isdigit()
-            else 50.0
-        )
-        logger.info(
-            f"Detected 'etoh' in filename, assigning all dishes to Ethanol {strength}%"
-        )
-        cname = "Ethanol"
-        cname_full = f"{cname} {strength}%"
-        dish_to_class = {k: cname_full for k in dish_to_class}
+        if "etoh" in lower_name:  # this is to get ones that only hve ethanol
+            logger.info(
+                f"Detected 'etoh' in filename, assigning ethanol dishes to Ethanol"
+            )
+            dish_to_class = {k: ("Ethanol" if v.startswith("Ethanol") else v) for k, v in dish_to_class.items()}
 
     fps = cap.get(cv2.CAP_PROP_FPS)
     offset_seconds = [170.0, 155.0, 95.0, 60.0, 22.5, 0.0, 0.0, 0.0]
