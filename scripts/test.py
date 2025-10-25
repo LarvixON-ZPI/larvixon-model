@@ -6,9 +6,8 @@ from src.config import ROI_BOXES as roi_boxes
 from src.config import DISH_TO_CLASS as dish_to_class
 
 extract_8_dishes_to_frame_folders(
-    "L_RL_EtOH_6.5_2025_09_25_49_2.mov",
+    "internal_data/L_RL_2025_09_22_48.mov",
     "data/",
-    num_frames=200,
-    roi_boxes=roi_boxes,
+    num_frames=50,
     dish_to_class=dish_to_class,
 )
