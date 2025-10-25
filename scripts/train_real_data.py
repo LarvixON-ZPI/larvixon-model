@@ -236,10 +236,11 @@ def detect_first_larva_frame(
 
 
 def extract_8_dishes_to_frame_folders(
-    video_path, out_root, num_frames, roi_boxes, dish_to_class
+    video_path, out_root, num_frames, dish_to_class
 ):
     """
     Writes frames into: out_root/<ClassName>/frames_<video-stem>_dishK/frame_XXXX.png
+    Divides video into 8 even regions (4 columns, 2 rows) with 5% tolerance padding.
     Returns total sequences written.
     """
     os.makedirs(out_root, exist_ok=True)
@@ -247,11 +248,37 @@ def extract_8_dishes_to_frame_folders(
     total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     logger.info(f"Video {video_path} has {total} frames.")
 
+    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+    ok, frame = cap.read()
+    if not ok:
+        raise ValueError(f"Cannot read first frame of {video_path}")
+    frame_h, frame_w = frame.shape[:2]
+
+    cols = 4
+    rows = 2
+    dish_w = frame_w // cols
+    dish_h = frame_h // rows
+    tolerance = 0.15  # 5%
+    pad_w = int(dish_w * tolerance)
+    pad_h = int(dish_h * tolerance)
+
+    roi_boxes = []
+    for row in range(rows):
+        for col in range(cols):
+            x1 = max(0, col * dish_w - pad_w)
+            y1 = max(0, row * dish_h - pad_h)
+            x2 = min(frame_w, (col + 1) * dish_w + pad_w)
+            y2 = min(frame_h, (row + 1) * dish_h + pad_h)
+            w = x2 - x1
+            h = y2 - y1
+            roi_boxes.append((x1, y1, w, h))
+    logger.info(f"Generated even roi_boxes with padding: {roi_boxes}")
+
     stem = os.path.splitext(os.path.basename(video_path))[0]
     lower_name = os.path.splitext(os.path.basename(video_path))[0].lower()
     logger.info(f"Inferring dish classes from video name: {lower_name}")
 
-    if "etoh" in lower_name:  # this is to get ones that only hve ethanol
+    if "etoh" in lower_name:  # this is to get ones that only have ethanol
         logger.info(
             f"Detected 'etoh' in filename, assigning ethanol dishes to Ethanol"
         )
@@ -261,12 +288,7 @@ def extract_8_dishes_to_frame_folders(
     offset_seconds = [170.0, 155.0, 95.0, 60.0, 22.5, 0.0, 0.0, 0.0]
     start_offsets = [int(s * fps) for s in offset_seconds]
 
-    # start_offsets = []
-    # for roi in roi_boxes:
-    #     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-    #     start_offsets.append(detect_first_larva_frame(cap, roi, max_check=4300, diff_thresh=15, sustain_frames=3))
-
-    logger.info(f"Detected start offsets per dish: {start_offsets}")
+    logger.info(f"Using start offsets per dish: {start_offsets}")
 
     idxs_per_dish = [
         sample_frame_indices(
@@ -309,6 +331,7 @@ def train_one_video(model, optimizer, data_dir, device, num_frames, batch_size, 
     """
     dataset = FrameDataset(data_dir, num_frames=num_frames, transform=transform)
     if len(dataset) == 0:
+        logger.warning(f"No sequences found in {data_dir}, skipping training.")
         return 0, 0.0
 
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
@@ -361,7 +384,6 @@ def main():
                 video_path=local_mp4,
                 out_root=tmp_data,
                 num_frames=config.NUM_FRAMES,
-                roi_boxes=config.ROI_BOXES,
                 dish_to_class=config.DISH_TO_CLASS,
             )
 
