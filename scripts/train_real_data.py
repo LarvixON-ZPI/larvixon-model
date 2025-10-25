@@ -258,13 +258,13 @@ def extract_8_dishes_to_frame_folders(
     rows = 2
     dish_w = frame_w // cols
     dish_h = frame_h // rows
-    tolerance = 0.15  # 5%
+    tolerance = 0.1  # 5%
     pad_w = int(dish_w * tolerance)
     pad_h = int(dish_h * tolerance)
 
     roi_boxes = []
-    for row in range(rows):
-        for col in range(cols):
+    for col in range(cols):
+        for row in range(rows):
             x1 = max(0, col * dish_w - pad_w)
             y1 = max(0, row * dish_h - pad_h)
             x2 = min(frame_w, (col + 1) * dish_w + pad_w)

@@ -1,7 +1,7 @@
 import cv2
 import json
 
-VIDEO_PATH = "L_RL_2025_09_25_49.mov"
+VIDEO_PATH = "internal_data/output.mp4"
 OUTPUT_FILE = "roi_boxes.json"
 
 cap = cv2.VideoCapture(VIDEO_PATH)
