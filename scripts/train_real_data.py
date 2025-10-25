@@ -325,7 +325,7 @@ def extract_8_dishes_to_frame_folders(
     return len(targets)
 
 
-def train_one_video(model, optimizer, data_dir, device, num_frames, batch_size, epochs):
+def train_one_video(model, optimizer, data_dir, device=config.DEVICE, num_frames=config.NUM_FRAMES, batch_size=config.BATCH_SIZE, epochs=config.NUM_EPOCHS):
     """
     Minimal train loop (per video) that reuses your dataset and settings.
     """
