@@ -336,6 +336,7 @@ def train_one_video(model, optimizer, data_dir, device, num_frames, batch_size, 
 
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
     criterion = nn.CrossEntropyLoss()
+    logger.info(f"Training on {len(dataset)} sequences for {epochs} epochs.")
 
     model.train()
     total, correct, running = 0, 0, 0.0
@@ -358,6 +359,18 @@ def train_one_video(model, optimizer, data_dir, device, num_frames, batch_size, 
 
 
 def main():
+    logger.info("Starting training on real data from S3 with config:")
+    logger.info(f"Device: {config.DEVICE}")
+    logger.info(f"Model: {CNNLSTM.__name__}")
+    logger.info(f"Optimizer: {torch.optim.Adam.__name__}")
+    logger.info(f"Learning Rate: {config.LEARNING_RATE}")
+    logger.info(f"Batch Size: {config.BATCH_SIZE}")
+    logger.info(f"Num Frames: {config.NUM_FRAMES}")
+    logger.info(f"Epochs per Video: {config.EPOCHS_PER_VIDEO}")
+    logger.info(f"S3 Bucket: {config.S3_BUCKET}")
+    logger.info(f"S3 Prefix: {config.S3_PREFIX}")
+    logger.info(f"Class Names: {config.CLASS_NAMES}")
+
     device = config.DEVICE
     model = CNNLSTM(num_classes=config.NUM_CLASSES).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=config.LEARNING_RATE)

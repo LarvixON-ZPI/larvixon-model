@@ -7,11 +7,11 @@ load_dotenv()
 
 FRAME_DIR = os.getenv("FRAME_DIR", "inference_frames/seq1")
 DATA_DIR = os.getenv("DATA_DIR", "data/")
-BATCH_SIZE = int(os.getenv("BATCH_SIZE", "2"))  # Adjust based on your GPU memory
+BATCH_SIZE = int(os.getenv("BATCH_SIZE", "2"))  # Adjust based on your GPU mem
 NUM_FRAMES = int(os.getenv("NUM_FRAMES", "225"))
 NUM_CLASSES = int(os.getenv("NUM_CLASSES", "4"))
 MODEL_PATH = os.getenv("MODEL_PATH", "models/cnn_lstm_final.pt")
-LEARNING_RATE = float(os.getenv("LEARNING_RATE", "1e-5"))
+LEARNING_RATE = float(os.getenv("LEARNING_RATE", "1e-4"))
 NUM_EPOCHS = int(os.getenv("NUM_EPOCHS", "25"))
 EPOCHS_PER_VIDEO = int(os.getenv("EPOCHS_PER_VIDEO", "3"))
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -20,7 +20,7 @@ API_HOST = os.getenv("API_HOST", "0.0.0.0")
 API_PORT = int(os.getenv("API_PORT", "8000"))
 
 _default_classes = "Nothing, Water (H2O), Ethanol, Redbull"
-CLASS_NAMES = os.getenv("CLASS_NAMES", _default_classes).split(",")
+CLASS_NAMES = os.getenv("CLASS_NAMES", _default_classes).split(", ")
 
 S3_BUCKET = "s3min-adam.junka-1744366756"
 S3_PREFIX = ""
