@@ -1,17 +1,18 @@
 import os
 import sys
+
+from src import config
 sys.path.append(".")
 import tempfile
 import torch
 import torch.nn.functional as F
-import config
 from fastapi import FastAPI, UploadFile, File
 from PIL import Image
 from torchvision import transforms
 from src.models.cnn_lstm_model import CNNLSTM
 from src.utils.logger import logger
 from src.utils.video_utils import video_to_fixed_frames
-from src.config import NUM_FRAMES, NUM_CLASSES, MODEL_PATH, DEVICE, CLASS_NAMES
+from src.config import NUM_FRAMES, NUM_CLASSES, MODEL_PATH, DEVICE, CLASS_NAMES, LEARNING_RATE, CHECKPOINT_PATH, SAVE_PATH
 
 
 transform = transforms.Compose(
@@ -72,12 +73,12 @@ async def train(file: UploadFile = File(...), class_name: str = "Nothing", epoch
     if class_name not in CLASS_NAMES:
         return {"error": f"Invalid class name. Choose from {CLASS_NAMES}"}
 
-    device = config.DEVICE
-    model = CNNLSTM(num_classes=config.NUM_CLASSES).to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=config.LEARNING_RATE)
+    device = DEVICE
+    model = CNNLSTM(num_classes=NUM_CLASSES).to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
-    if os.path.exists(config.CHECKPOINT_PATH):
-        ckpt = torch.load(config.CHECKPOINT_PATH, map_location=device)
+    if os.path.exists(CHECKPOINT_PATH):
+        ckpt = torch.load(CHECKPOINT_PATH, map_location=device)
         if isinstance(ckpt, dict) and "model_state" in ckpt:
             model.load_state_dict(ckpt["model_state"])
             if "opt_state" in ckpt:
@@ -88,10 +89,10 @@ async def train(file: UploadFile = File(...), class_name: str = "Nothing", epoch
     with tempfile.TemporaryDirectory() as temp_dir:
         video_path = os.path.join(temp_dir, "video.mp4")
         from scripts.train_real_data import train_one_video
-        train_one_video(model, optimizer=optimizer, data_dir=video_path, device=device, num_frames=config.NUM_FRAMES, batch_size=config.BATCH_SIZE, epochs=epochs)
+        train_one_video(model, optimizer=optimizer, data_dir=video_path, device=device, num_frames=NUM_FRAMES, batch_size=NUM_CLASSES, epochs=epochs)
 
-    torch.save(model.state_dict(), config.SAVE_PATH)
-    logger.info(f"Saved final model to {config.SAVE_PATH}")
+    torch.save(model.state_dict(), SAVE_PATH)
+    logger.info(f"Saved final model to {SAVE_PATH}")
 
     if device.type == "cuda":
         torch.cuda.empty_cache()
