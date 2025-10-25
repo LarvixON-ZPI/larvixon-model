@@ -4,6 +4,7 @@ sys.path.append(".")
 import tempfile
 import torch
 import torch.nn.functional as F
+import config
 from fastapi import FastAPI, UploadFile, File
 from PIL import Image
 from torchvision import transforms
@@ -64,3 +65,36 @@ async def predict(file: UploadFile = File(...)):
         result = {cls: float(p * 100) for cls, p in zip(CLASS_NAMES, probs)}
 
         return {"predictions": result}
+
+
+@app.post("/train")
+async def train(file: UploadFile = File(...), class_name: str = "Nothing", epochs: int = 2):
+    if class_name not in CLASS_NAMES:
+        return {"error": f"Invalid class name. Choose from {CLASS_NAMES}"}
+
+    device = config.DEVICE
+    model = CNNLSTM(num_classes=config.NUM_CLASSES).to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=config.LEARNING_RATE)
+
+    if os.path.exists(config.CHECKPOINT_PATH):
+        ckpt = torch.load(config.CHECKPOINT_PATH, map_location=device)
+        if isinstance(ckpt, dict) and "model_state" in ckpt:
+            model.load_state_dict(ckpt["model_state"])
+            if "opt_state" in ckpt:
+                optimizer.load_state_dict(ckpt["opt_state"])
+        else:
+            model.load_state_dict(ckpt)
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        video_path = os.path.join(temp_dir, "video.mp4")
+        from scripts.train_real_data import train_one_video
+        train_one_video(model, optimizer=optimizer, data_dir=video_path, device=device, num_frames=config.NUM_FRAMES, batch_size=config.BATCH_SIZE, epochs=epochs)
+
+    torch.save(model.state_dict(), config.SAVE_PATH)
+    logger.info(f"Saved final model to {config.SAVE_PATH}")
+
+    if device.type == "cuda":
+        torch.cuda.empty_cache()
+
+    return {"status": f"Training initiated for class '{class_name}' for {epochs} epochs."}
+

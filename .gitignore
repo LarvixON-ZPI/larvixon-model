@@ -14,6 +14,8 @@ __pycache__/
 *.mov
 *.bash
 *.json
+
+# Ignore internal data folders
 internal_data/*
 
 
