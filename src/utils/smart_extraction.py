@@ -5,6 +5,7 @@ from typing import List, Tuple, Dict, Optional
 from src.utils.logger import logger
 from src.utils.petri_dish_detector import (PetriDishDetector, 
                                           detect_dishes_in_video)
+from src.utils.grid_based_detector import detect_dishes_in_video_grid
 from src.utils.larvae_detector import LarvaeDetector
 import src.config as config
 
@@ -50,8 +51,22 @@ class SmartVideoExtractor:
 
         if self.use_detected_rois:
             logger.info("Using automatic petri dish detection...")
-            dish_rois = detect_dishes_in_video(video_path, detection_frame,
-                                              save_detection_image=True)
+            try:
+                dish_rois = detect_dishes_in_video(video_path, detection_frame,
+                                                  save_detection_image=True)
+            except Exception as e:
+                logger.warning(f"Contour-based detection failed: {e}")
+                dish_rois = []
+            
+            # Fallback to grid-based detection if contour detection fails
+            if not dish_rois:
+                logger.info("Falling back to grid-based detection...")
+                try:
+                    dish_rois = detect_dishes_in_video_grid(video_path, detection_frame,
+                                                          save_detection_image=True)
+                except Exception as e:
+                    logger.warning(f"Grid-based detection failed: {e}")
+                    dish_rois = []
         else:
             logger.info("Using manual ROI boxes...")
             dish_rois = config.ROI_BOXES
