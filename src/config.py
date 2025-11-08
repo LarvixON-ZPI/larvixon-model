@@ -34,7 +34,7 @@ S3_BUCKET = "s3min-adam.junka-1744366756"
 S3_PREFIX = ""
 
 SAVE_PATH = "models/cnn_lstm_final.pt"
-CHECKPOINT_PATH = "models/cnn_lstm_checkpoint.pt"
+CHECKPOINT_PATH = "models/cnn_lstm_final.pt"
 
 
 DISH_TO_CLASS = {
