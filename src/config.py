@@ -7,7 +7,7 @@ load_dotenv()
 
 FRAME_DIR = os.getenv("FRAME_DIR", "inference_frames/seq1")
 DATA_DIR = os.getenv("DATA_DIR", "data/")
-BATCH_SIZE = int(os.getenv("BATCH_SIZE", "2"))  # Adjust based on your GPU mem
+BATCH_SIZE = int(os.getenv("BATCH_SIZE", "2"))  # Adjust based on your GPU mem, I found the VRAM / 2 works well
 NUM_FRAMES = int(os.getenv("NUM_FRAMES", "225"))
 NUM_CLASSES = int(os.getenv("NUM_CLASSES", "4"))
 MODEL_PATH = os.getenv("MODEL_PATH", "models/cnn_lstm_final.pt")
@@ -19,7 +19,15 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 API_HOST = os.getenv("API_HOST", "0.0.0.0")
 API_PORT = int(os.getenv("API_PORT", "8000"))
 
-_default_classes = "Nothing, Water (H2O), Ethanol, Redbull"
+_default_classes = "Redbull, Ethanol, Water (H2O), Nothing"
+
+# To jest to że nie wiedzieliśmy że jest odbicie lustrzane
+# class_map = {
+#     "Redbull" : "Nothing",
+#     "Ethanol" : "Water (H2O)",
+#     "Water (H2O)" : "Ethanol",
+#     "Nothing" : "Redbull"
+# }
 CLASS_NAMES = os.getenv("CLASS_NAMES", _default_classes).split(", ")
 
 S3_BUCKET = "s3min-adam.junka-1744366756"
@@ -30,14 +38,14 @@ CHECKPOINT_PATH = "models/cnn_lstm_checkpoint.pt"
 
 
 DISH_TO_CLASS = {
-    0: "Nothing",
-    1: "Nothing",
-    2: "Water (H2O)",
-    3: "Water (H2O)",
-    4: "Ethanol",
-    5: "Ethanol",
-    6: "Redbull",
-    7: "Redbull",
+    0: "Redbull",
+    1: "Redbull",
+    2: "Ethanol",
+    3: "Ethanol",
+    4: "Water (H2O)",
+    5: "Water (H2O)",
+    6: "Nothing",
+    7: "Nothing",
 }
 
 with open("roi_boxes.json") as f:

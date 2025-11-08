@@ -12,7 +12,7 @@ from torchvision import transforms
 from src.models.cnn_lstm_model import CNNLSTM
 from src.utils.logger import logger
 from src.utils.video_utils import video_to_fixed_frames
-from src.config import NUM_FRAMES, NUM_CLASSES, MODEL_PATH, DEVICE, CLASS_NAMES, LEARNING_RATE, CHECKPOINT_PATH, SAVE_PATH
+from src.config import NUM_FRAMES, NUM_CLASSES, MODEL_PATH, DEVICE, CLASS_NAMES, LEARNING_RATE, CHECKPOINT_PATH, SAVE_PATH, class_map
 
 
 transform = transforms.Compose(
@@ -63,9 +63,9 @@ async def predict(file: UploadFile = File(...)):
             probs = probs.squeeze().cpu().numpy()
             logger.info(f"Prediction probabilities: {probs}")
 
-        result = {cls: float(p * 100) for cls, p in zip(CLASS_NAMES, probs)}
+        results_mapped = { class_map[cls]: float(p * 100) for cls, p in zip(CLASS_NAMES, probs)} 
 
-        return {"predictions": result}
+        return {"predictions": results_mapped}
 
 
 @app.post("/train")

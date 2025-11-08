@@ -1,7 +1,10 @@
 import torch
 import numpy as np
 import pandas as pd
-from torch.utils.data import DataLoader, SubsetRandomSampler
+import cv2
+import os
+import glob
+from torch.utils.data import DataLoader, Dataset, SubsetRandomSampler
 from torchvision import transforms
 from sklearn.metrics import (
     confusion_matrix, classification_report, accuracy_score,
@@ -11,130 +14,256 @@ from sklearn.model_selection import StratifiedKFold, train_test_split
 import seaborn as sns
 import matplotlib.pyplot as plt
 from collections import defaultdict
-import os
 import json
 from datetime import datetime
 import warnings
 
-from src.datasets.frame_dataset import FrameDataset
 from src.models.cnn_lstm_model import CNNLSTM
+from src.utils.video_utils import video_to_fixed_frames
 import src.config as config
 from src.utils.logger import logger
 
 warnings.filterwarnings('ignore')
 
-
-class CrossValidationEvaluator:
+class VideoFrameDataset(Dataset):
     """
-    Comprehensive Cross-Validation Evaluator for CNN-LSTM Model
+    Dataset that extracts frames from videos and creates sequences for evaluation
     """
     
-    def __init__(self, data_dir, num_folds=5, test_size=0.2, random_state=42):
-        self.data_dir = data_dir
+    def __init__(self, video_dir, num_frames=16, transform=None, temp_dir="temp_frames"):
+        self.video_dir = video_dir
+        self.num_frames = num_frames
+        self.transform = transform
+        self.temp_dir = temp_dir
+        self.samples = []
+        
+        # Create temporary directory for frame extraction
+        os.makedirs(self.temp_dir, exist_ok=True)
+        
+        # Process all video files
+        self._process_videos()
+        
+    def _extract_label_from_filename(self, video_filename):
+        """
+        Extract label from video filename based on patterns
+        """
+        filename_lower = video_filename.lower()
+        
+        if "nothing" in filename_lower or "_rl_" in filename_lower and "etoh" not in filename_lower and "water" not in filename_lower:
+            return 0  # Nothing
+        elif "water" in filename_lower or "_wl_" in filename_lower:
+            return 1  # Water (H2O)
+        elif "etoh" in filename_lower or "ethanol" in filename_lower:
+            return 2  # Ethanol
+        elif "redbull" in filename_lower or "rb_" in filename_lower:
+            return 3  # Redbull
+        else:
+            logger.warning(f"Could not determine label for {video_filename}, defaulting to 0 (Nothing)")
+            return 0
+    
+    def _process_videos(self):
+        """
+        Process all videos in the directory and extract frames
+        """
+        video_extensions = ['*.mov', '*.mp4', '*.avi', '*.mkv']
+        video_files = []
+        
+        for ext in video_extensions:
+            video_files.extend(glob.glob(os.path.join(self.video_dir, ext)))
+        
+        logger.info(f"Found {len(video_files)} video files in {self.video_dir}")
+        
+        for video_path in video_files:
+            video_filename = os.path.basename(video_path)
+            logger.info(f"Processing video: {video_filename}")
+            
+            # Extract label from filename
+            label = self._extract_label_from_filename(video_filename)
+            
+            # Create output directory for this video's frames
+            video_name = os.path.splitext(video_filename)[0]
+            frame_output_dir = os.path.join(self.temp_dir, video_name)
+            
+            try:
+                # Extract frames from video
+                video_to_fixed_frames(
+                    video_path=video_path,
+                    output_dir=frame_output_dir,
+                    num_frames=self.num_frames,
+                    prefix="frame"
+                )
+                
+                # Get all extracted frame paths
+                frame_files = sorted(glob.glob(os.path.join(frame_output_dir, "frame_*.jpg")))
+                
+                if len(frame_files) >= self.num_frames:
+                    # Take exactly num_frames
+                    frame_files = frame_files[:self.num_frames]
+                    self.samples.append((frame_files, label))
+                    logger.info(f"Added video {video_filename} with label {config.CLASS_NAMES[label]} ({len(frame_files)} frames)")
+                else:
+                    logger.warning(f"Video {video_filename} has insufficient frames ({len(frame_files)} < {self.num_frames})")
+                    
+            except Exception as e:
+                logger.error(f"Error processing video {video_filename}: {str(e)}")
+                continue
+        
+        logger.info(f"Successfully processed {len(self.samples)} video sequences")
+    
+    def __len__(self):
+        return len(self.samples)
+    
+    def __getitem__(self, idx):
+        frame_paths, label = self.samples[idx]
+        
+        # Load and transform frames
+        frames = []
+        for frame_path in frame_paths:
+            try:
+                # Load image
+                image = cv2.imread(frame_path)
+                if image is None:
+                    raise ValueError(f"Could not load image: {frame_path}")
+                
+                # Convert BGR to RGB
+                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                
+                # Apply transforms
+                if self.transform:
+                    image = self.transform(image)
+                
+                frames.append(image)
+                
+            except Exception as e:
+                logger.error(f"Error loading frame {frame_path}: {str(e)}")
+                # Create a dummy black frame if loading fails
+                if self.transform:
+                    dummy_frame = self.transform(np.zeros((224, 224, 3), dtype=np.uint8))
+                else:
+                    dummy_frame = torch.zeros(3, 224, 224)
+                frames.append(dummy_frame)
+        
+        # Stack frames into tensor (num_frames, channels, height, width)
+        frames_tensor = torch.stack(frames)
+        
+        return frames_tensor, label
+    
+    def cleanup(self):
+        """
+        Clean up temporary frame directories
+        """
+        import shutil
+        if os.path.exists(self.temp_dir):
+            shutil.rmtree(self.temp_dir)
+            logger.info(f"Cleaned up temporary directory: {self.temp_dir}")
+
+class VideoEvaluator:
+    """
+    Cross-Validation Evaluator for CNN-LSTM Model using video data
+    """
+    
+    def __init__(self, video_dir, num_frames=16, num_folds=5, test_size=0.2, random_state=42):
+        self.video_dir = video_dir
+        self.num_frames = num_frames
         self.num_folds = num_folds
         self.test_size = test_size
         self.random_state = random_state
         self.device = config.DEVICE
         self.small_dataset = False
         
+        # Transform for evaluation
         self.transform = transforms.Compose([
+            transforms.ToPILImage(),
             transforms.Resize((112, 112)),
             transforms.ToTensor(),
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
         ])
         
-        temp_dataset = FrameDataset(
-            root_dir=self.data_dir, 
-            num_frames=16,  
+        # Create dataset from videos
+        logger.info(f"Creating dataset from videos in {video_dir}")
+        self.dataset = VideoFrameDataset(
+            video_dir=video_dir,
+            num_frames=num_frames,
             transform=self.transform
         )
         
-        if len(temp_dataset) == 0:
-            for frames_count in [10, 8, 5]:
-                temp_dataset = FrameDataset(
-                    root_dir=self.data_dir, 
-                    num_frames=frames_count,
-                    transform=self.transform
-                )
-                if len(temp_dataset) > 0:
-                    logger.info(f"Using {frames_count} frames per sequence")
-                    break
-        
-        self.dataset = temp_dataset
-        self.actual_num_frames = self.dataset.num_frames if hasattr(self.dataset, 'num_frames') else 16
-        
+        # Results storage
         self.cv_results = defaultdict(list)
         self.fold_predictions = []
         self.fold_true_labels = []
         
-        logger.info(f"Initialized CV Evaluator with {len(self.dataset)} samples")
+        logger.info(f"Initialized Video Evaluator with {len(self.dataset)} video samples")
         logger.info(f"Classes: {config.CLASS_NAMES}")
         
+        # Check if dataset is too small for proper cross-validation
         if len(self.dataset) < 10:
             self.small_dataset = True
-            self.num_folds = min(len(self.dataset), 4)  # Use smaller folds
-            self.test_size = 1.0 / len(self.dataset)  # Use single sample for test
+            self.num_folds = min(len(self.dataset), max(2, len(self.dataset) // 2))
+            self.test_size = max(0.1, 1.0 / len(self.dataset))
             logger.warning(f"Small dataset detected. Adjusting to {self.num_folds} folds.")
-        
-    def create_sequence_aware_splits(self):
+    
+    def create_video_aware_splits(self):
         """
-        Create train/test splits that respect sequence boundaries to prevent data leakage
+        Create train/test splits for video data
         """
-        sequence_groups = defaultdict(list)
-        sequence_labels = []
+        # Get all sample indices and their labels
+        all_indices = list(range(len(self.dataset)))
+        all_labels = [self.dataset.samples[idx][1] for idx in all_indices]
         
-        for idx, (frame_paths, label) in enumerate(self.dataset.samples):
-            seq_dir = os.path.dirname(frame_paths[0])
-            sequence_groups[seq_dir].append(idx)
-            if seq_dir not in [item[0] for item in sequence_labels]:
-                sequence_labels.append((seq_dir, label))
-        
-        seq_dirs = [item[0] for item in sequence_labels]
-        labels = [item[1] for item in sequence_labels]
-        
-        if len(seq_dirs) <= 4 or len(set(labels)) < 2:
-            train_seqs, test_seqs, train_labels, test_labels = train_test_split(
-                seq_dirs, labels, 
-                test_size=self.test_size, 
+        # For small datasets or insufficient class diversity, skip stratification
+        unique_labels = set(all_labels)
+        if len(self.dataset) <= 4 or len(unique_labels) < 2:
+            train_indices, test_indices = train_test_split(
+                all_indices,
+                test_size=self.test_size,
                 random_state=self.random_state
             )
         else:
-            train_seqs, test_seqs, train_labels, test_labels = train_test_split(
-                seq_dirs, labels, 
-                test_size=self.test_size, 
-                stratify=labels, 
-                random_state=self.random_state
-            )
+            try:
+                train_indices, test_indices = train_test_split(
+                    all_indices,
+                    test_size=self.test_size,
+                    stratify=all_labels,
+                    random_state=self.random_state
+                )
+            except ValueError:
+                # Fallback to non-stratified split
+                train_indices, test_indices = train_test_split(
+                    all_indices,
+                    test_size=self.test_size,
+                    random_state=self.random_state
+                )
         
-        train_indices = []
-        test_indices = []
-        
-        for seq_dir in train_seqs:
-            train_indices.extend(sequence_groups[seq_dir])
-        
-        for seq_dir in test_seqs:
-            test_indices.extend(sequence_groups[seq_dir])
-            
-        return train_indices, test_indices, train_seqs, test_seqs
+        return train_indices, test_indices
     
     def create_cv_folds(self, train_indices):
         """
-        Create stratified K-fold splits for cross validation
+        Create K-fold splits for cross validation
         """
         train_labels = [self.dataset.samples[idx][1] for idx in train_indices]
         
-        skf = StratifiedKFold(
-            n_splits=self.num_folds, 
-            shuffle=True, 
-            random_state=self.random_state
-        )
+        # Try stratified K-fold, fallback to regular K-fold if not possible
+        try:
+            skf = StratifiedKFold(
+                n_splits=self.num_folds,
+                shuffle=True,
+                random_state=self.random_state
+            )
+            folds = []
+            for train_fold_idx, val_fold_idx in skf.split(train_indices, train_labels):
+                train_fold = [train_indices[i] for i in train_fold_idx]
+                val_fold = [train_indices[i] for i in val_fold_idx]
+                folds.append((train_fold, val_fold))
+        except ValueError:
+            # Fallback to simple splitting
+            from sklearn.model_selection import KFold
+            kf = KFold(n_splits=self.num_folds, shuffle=True, random_state=self.random_state)
+            folds = []
+            for train_fold_idx, val_fold_idx in kf.split(train_indices):
+                train_fold = [train_indices[i] for i in train_fold_idx]
+                val_fold = [train_indices[i] for i in val_fold_idx]
+                folds.append((train_fold, val_fold))
         
-        folds = []
-        for train_fold_idx, val_fold_idx in skf.split(train_indices, train_labels):
-            train_fold = [train_indices[i] for i in train_fold_idx]
-            val_fold = [train_indices[i] for i in val_fold_idx]
-            folds.append((train_fold, val_fold))
-            
         return folds
     
     def evaluate_model(self, model, dataloader, fold_name=""):
@@ -220,13 +349,14 @@ class CrossValidationEvaluator:
         """
         if model_path is None:
             model_path = config.MODEL_PATH
-            
+        
         logger.info(f"Starting Cross-Validation with {self.num_folds} folds")
         logger.info(f"Using model: {model_path}")
         
+        # Load pre-trained model
         base_model = CNNLSTM(num_classes=config.NUM_CLASSES).to(self.device)
         
-        # Try to load the model, with fallback options
+        # Try to load the model with fallback options
         try:
             base_model.load_state_dict(torch.load(model_path, map_location=self.device, weights_only=False))
             logger.info(f"Successfully loaded model from {model_path}")
@@ -245,16 +375,13 @@ class CrossValidationEvaluator:
             except Exception as e2:
                 logger.error(f"Failed to load checkpoint {checkpoint_path}: {e2}")
                 logger.warning("Using randomly initialized model for demonstration purposes")
-                # Continue with randomly initialized model for demo
         
         # For very small datasets, just evaluate the entire dataset
-        if self.small_dataset or len(self.dataset) <= 8:
+        if self.small_dataset or len(self.dataset) <= 4:
             logger.warning("Very small dataset - performing simple evaluation on all data")
             
-            # Use all data for evaluation
-            all_indices = list(range(len(self.dataset)))
             data_loader = DataLoader(
-                self.dataset, 
+                self.dataset,
                 batch_size=config.BATCH_SIZE,
                 shuffle=False
             )
@@ -269,15 +396,13 @@ class CrossValidationEvaluator:
             
             # Mock some CV results for consistency
             for metric_name, value in final_test_metrics.items():
-                self.cv_results[metric_name] = [value]  # Single "fold"
+                self.cv_results[metric_name] = [value]
             
             return final_test_metrics, all_preds, all_labels, all_probs
         
         # Normal cross-validation for larger datasets
-        # Create sequence-aware train/test split
-        train_indices, test_indices, train_seqs, test_seqs = self.create_sequence_aware_splits()
+        train_indices, test_indices = self.create_video_aware_splits()
         
-        logger.info(f"Train sequences: {len(train_seqs)}, Test sequences: {len(test_seqs)}")
         logger.info(f"Train samples: {len(train_indices)}, Test samples: {len(test_indices)}")
         
         # Create CV folds from training data
@@ -287,10 +412,9 @@ class CrossValidationEvaluator:
         for fold, (fold_train_indices, fold_val_indices) in enumerate(cv_folds):
             logger.info(f"\n--- Fold {fold + 1}/{self.num_folds} ---")
             
-            # Create data loaders
             val_sampler = SubsetRandomSampler(fold_val_indices)
             val_loader = DataLoader(
-                self.dataset, 
+                self.dataset,
                 batch_size=config.BATCH_SIZE,
                 sampler=val_sampler
             )
@@ -317,7 +441,7 @@ class CrossValidationEvaluator:
         # Final evaluation on held-out test set
         test_sampler = SubsetRandomSampler(test_indices)
         test_loader = DataLoader(
-            self.dataset, 
+            self.dataset,
             batch_size=config.BATCH_SIZE,
             sampler=test_sampler
         )
@@ -336,10 +460,9 @@ class CrossValidationEvaluator:
         Print comprehensive cross-validation results
         """
         print("\n" + "="*80)
-        print("CROSS-VALIDATION RESULTS")
+        print("VIDEO CROSS-VALIDATION RESULTS")
         print("="*80)
         
-        # Key metrics summary
         key_metrics = ['accuracy', 'f1_macro', 'precision_macro', 'recall_macro', 'mcc']
         
         print(f"\n{'Metric':<20} {'Mean':<10} {'Std':<10} {'Min':<10} {'Max':<10}")
@@ -360,106 +483,7 @@ class CrossValidationEvaluator:
                 values = np.array(self.cv_results[metric_key])
                 print(f"{class_name:<15} {values.mean():<10.4f} ± {values.std():<8.4f}")
     
-    def plot_results(self, test_preds, test_labels, save_dir="evaluation_results"):
-        """
-        Create visualization plots
-        """
-        os.makedirs(save_dir, exist_ok=True)
-        
-        # 1. Cross-validation metrics boxplot
-        plt.figure(figsize=(15, 10))
-        
-        # Key metrics for plotting
-        key_metrics = ['accuracy', 'f1_macro', 'precision_macro', 'recall_macro']
-        
-        plt.subplot(2, 3, 1)
-        metrics_data = [self.cv_results[metric] for metric in key_metrics if metric in self.cv_results]
-        metrics_labels = [metric for metric in key_metrics if metric in self.cv_results]
-        
-        if metrics_data:
-            plt.boxplot(metrics_data, labels=metrics_labels)
-            plt.title('Cross-Validation Metrics Distribution')
-            plt.xticks(rotation=45)
-            plt.ylabel('Score')
-        
-        # 2. Per-class F1 scores
-        plt.subplot(2, 3, 2)
-        class_f1_means = []
-        class_f1_stds = []
-        class_names_plot = []
-        
-        for class_name in config.CLASS_NAMES:
-            metric_key = f'f1_{class_name}'
-            if metric_key in self.cv_results:
-                values = np.array(self.cv_results[metric_key])
-                class_f1_means.append(values.mean())
-                class_f1_stds.append(values.std())
-                class_names_plot.append(class_name)
-        
-        if class_f1_means:
-            x_pos = np.arange(len(class_names_plot))
-            plt.bar(x_pos, class_f1_means, yerr=class_f1_stds, alpha=0.7, capsize=5)
-            plt.xlabel('Classes')
-            plt.ylabel('F1 Score')
-            plt.title('Per-Class F1 Scores (Mean ± Std)')
-            plt.xticks(x_pos, class_names_plot, rotation=45)
-        
-        # 3. Final test confusion matrix
-        plt.subplot(2, 3, 3)
-        cm = confusion_matrix(test_labels, test_preds)
-        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
-                   xticklabels=config.CLASS_NAMES, yticklabels=config.CLASS_NAMES)
-        plt.title('Test Set Confusion Matrix')
-        plt.xlabel('Predicted')
-        plt.ylabel('True')
-        
-        # 4. Accuracy across folds
-        plt.subplot(2, 3, 4)
-        fold_numbers = list(range(1, len(self.cv_results['accuracy']) + 1))
-        plt.plot(fold_numbers, self.cv_results['accuracy'], 'bo-', linewidth=2, markersize=8)
-        plt.axhline(y=np.mean(self.cv_results['accuracy']), color='r', linestyle='--', 
-                   label=f'Mean: {np.mean(self.cv_results["accuracy"]):.4f}')
-        plt.xlabel('Fold')
-        plt.ylabel('Accuracy')
-        plt.title('Accuracy Across CV Folds')
-        plt.legend()
-        plt.grid(True, alpha=0.3)
-        
-        # 5. Learning curve simulation (std dev across folds)
-        plt.subplot(2, 3, 5)
-        metrics_std = {metric: np.std(values) for metric, values in self.cv_results.items() 
-                      if metric in key_metrics}
-        if metrics_std:
-            plt.bar(metrics_std.keys(), metrics_std.values(), alpha=0.7)
-            plt.title('Metric Stability (Lower is Better)')
-            plt.ylabel('Standard Deviation')
-            plt.xticks(rotation=45)
-        
-        # 6. Class distribution
-        plt.subplot(2, 3, 6)
-        unique_labels, counts = np.unique(test_labels, return_counts=True)
-        class_names_dist = [config.CLASS_NAMES[i] for i in unique_labels]
-        plt.pie(counts, labels=class_names_dist, autopct='%1.1f%%', startangle=90)
-        plt.title('Test Set Class Distribution')
-        
-        plt.tight_layout()
-        plt.savefig(f"{save_dir}/cross_validation_results.png", dpi=300, bbox_inches='tight')
-        plt.show()
-        
-        # Save individual confusion matrix with better formatting
-        plt.figure(figsize=(10, 8))
-        cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-        
-        sns.heatmap(cm_normalized, annot=True, fmt='.3f', cmap='Blues',
-                   xticklabels=config.CLASS_NAMES, yticklabels=config.CLASS_NAMES)
-        plt.title('Normalized Confusion Matrix (Test Set)')
-        plt.xlabel('Predicted')
-        plt.ylabel('True')
-        plt.tight_layout()
-        plt.savefig(f"{save_dir}/confusion_matrix_normalized.png", dpi=300, bbox_inches='tight')
-        plt.show()
-    
-    def save_results(self, final_test_metrics, save_dir="evaluation_results"):
+    def save_results(self, final_test_metrics, save_dir="video_evaluation_results"):
         """
         Save detailed results to files
         """
@@ -481,46 +505,57 @@ class CrossValidationEvaluator:
             'cross_validation': cv_summary,
             'final_test_metrics': {k: float(v) for k, v in final_test_metrics.items()},
             'configuration': {
+                'video_dir': self.video_dir,
+                'num_frames': self.num_frames,
                 'num_folds': self.num_folds,
                 'test_size': self.test_size,
                 'random_state': self.random_state,
                 'num_classes': config.NUM_CLASSES,
                 'class_names': config.CLASS_NAMES,
-                'num_frames': config.NUM_FRAMES,
                 'batch_size': config.BATCH_SIZE,
-                'device': str(self.device)
+                'device': str(self.device),
+                'num_videos': len(self.dataset)
             },
             'timestamp': datetime.now().isoformat()
         }
         
         # Save as JSON
-        with open(f"{save_dir}/evaluation_results.json", 'w') as f:
+        with open(f"{save_dir}/video_evaluation_results.json", 'w') as f:
             json.dump(results, f, indent=2)
         
         # Save as CSV for easy analysis
         cv_df = pd.DataFrame(self.cv_results)
-        cv_df.to_csv(f"{save_dir}/cross_validation_metrics.csv", index=False)
+        cv_df.to_csv(f"{save_dir}/video_cross_validation_metrics.csv", index=False)
         
         logger.info(f"Results saved to {save_dir}/")
-
+    
+    def cleanup(self):
+        """
+        Clean up temporary files
+        """
+        self.dataset.cleanup()
 
 def main():
     """
-    Main evaluation function
+    Main evaluation function for video-based cross-validation
     """
-    print("Starting Cross-Validation Evaluation of CNN-LSTM Model")
+    print("Starting Video Cross-Validation Evaluation of CNN-LSTM Model")
     print("="*60)
     
-    # Initialize evaluator
-    evaluator = CrossValidationEvaluator(
-        data_dir=config.DATA_DIR,
+    # Initialize video evaluator
+    video_dir = "internal_data"
+    num_frames = 16  # Adjust based on your model requirements
+    
+    evaluator = VideoEvaluator(
+        video_dir=video_dir,
+        num_frames=num_frames,
         num_folds=5,
         test_size=0.2,
         random_state=42
     )
     
-    # Perform cross-validation
     try:
+        # Perform cross-validation
         final_test_metrics, test_preds, test_labels, test_probs = evaluator.perform_cross_validation()
         
         # Print results
@@ -537,24 +572,23 @@ def main():
         # Detailed classification report
         print(f"\nDetailed Classification Report (Test Set):")
         print(classification_report(
-            test_labels, test_preds, 
-            target_names=config.CLASS_NAMES, 
+            test_labels, test_preds,
+            target_names=config.CLASS_NAMES,
             digits=4
         ))
-        
-        # Create visualizations
-        evaluator.plot_results(test_preds, test_labels)
         
         # Save results
         evaluator.save_results(final_test_metrics)
         
-        print(f"\nEvaluation completed successfully!")
-        print(f"Results saved to evaluation_results/ directory")
+        print(f"\nVideo evaluation completed successfully!")
+        print(f"Results saved to video_evaluation_results/ directory")
         
     except Exception as e:
-        logger.error(f"Evaluation failed: {str(e)}")
+        logger.error(f"Video evaluation failed: {str(e)}")
         raise
-
+    finally:
+        # Clean up temporary files
+        evaluator.cleanup()
 
 if __name__ == "__main__":
     main()
