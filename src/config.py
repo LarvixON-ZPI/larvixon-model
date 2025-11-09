@@ -10,7 +10,7 @@ DATA_DIR = os.getenv("DATA_DIR", "data/")
 BATCH_SIZE = int(
     os.getenv("BATCH_SIZE", "2")
 )  # Adjust based on your GPU mem, I found the VRAM / 2 works well
-NUM_FRAMES = int(os.getenv("NUM_FRAMES", "225"))
+NUM_FRAMES = int(os.getenv("NUM_FRAMES", "215"))
 NUM_CLASSES = int(os.getenv("NUM_CLASSES", "4"))
 MODEL_PATH = os.getenv("MODEL_PATH", "models/cnn_lstm_final.pt")
 LEARNING_RATE = float(os.getenv("LEARNING_RATE", "1e-3"))
