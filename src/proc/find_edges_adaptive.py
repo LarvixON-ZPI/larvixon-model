@@ -100,7 +100,7 @@ def find_shapes_first_frame(
     logger.info(f"Found {len(contours)} raw contours. Filtering...")
     for contour in contours:
         (x, y, w, h) = cv2.boundingRect(contour)
-        if w > 50 and h > 50:
+        if w > 80 and h > 80:
             frame_rois.append((x, y, w, h))
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
 

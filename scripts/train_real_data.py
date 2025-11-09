@@ -247,10 +247,10 @@ def extract_8_dishes_to_frame_folders(
         logger.info(f"Generated even roi_boxes with padding: {roi_boxes}")
         return roi_boxes
 
-    def replace_even(even_rois, detected_rois, tolerance=40):
+    def replace_even(even_rois, detected_rois, tolerance=250):
         replaced = []
         for i in range(len(even_rois)):
-            x, y, w, h = roi
+            x, y, w, h = even_rois[i]
             for f_roi in detected_rois:
                 fx, fy, fw, fh = f_roi
                 if (
@@ -296,6 +296,8 @@ def extract_8_dishes_to_frame_folders(
 
         roi_boxes = roi_boxes[:8]
         logger.info(f"Detected roi_boxes: {roi_boxes}")
+    
+    logger.info(f"Final roi_boxes used for extraction: {roi_boxes}")
 
     stem = os.path.splitext(os.path.basename(video_path))[0]
     lower_name = os.path.splitext(os.path.basename(video_path))[0].lower()
