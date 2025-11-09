@@ -5,6 +5,43 @@ sys.path.append(".")
 from src.utils.logger import logger
 
 
+def remove_duplicates(rois, tolerance=20, num_of_petris=8):
+    """
+    Removes duplicate ROIs based on proximity and size similarity.
+
+    Args:
+        rois (list): List of tuples in (x, y, w, h) format.
+        num_of_petris (int): Expected number of unique ROIs.
+    Returns:
+        list: Filtered list of unique ROIs.
+    """
+    if len(rois) <= num_of_petris:
+        return rois
+
+    rois = sorted(rois, key=lambda b: (b[0], b[1]))
+    filtered_rois = []
+
+    for roi in rois:
+        x, y, w, h = roi
+        is_duplicate = False
+        for f_roi in filtered_rois:
+            fx, fy, fw, fh = f_roi
+            if (
+                abs(x - fx) < tolerance
+                and abs(y - fy) < tolerance
+                and abs(w - fw) < tolerance
+                and abs(h - fh) < tolerance
+            ):
+                is_duplicate = True
+                break
+        if not is_duplicate:
+            filtered_rois.append(roi)
+        if len(filtered_rois) >= num_of_petris:
+            break
+
+    return filtered_rois
+
+
 def find_shapes_first_frame(
     video_path, output_image_name="first_frame_shapes.jpg"
 ):
@@ -41,7 +78,7 @@ def find_shapes_first_frame(
     b, g, r_channel = cv2.split(frame)
 
     block_size = 15
-    sensitivity_const = 4
+    sensitivity_const = 3
 
     logger.info(
         f"Applying adaptive threshold with BlockSize={block_size}, C={sensitivity_const}"
@@ -71,12 +108,14 @@ def find_shapes_first_frame(
     debug_img_name = "first_frame_DEBUG_threshold.jpg"
     cv2.imwrite(debug_img_name, thresh_img)
 
+    frame_rois = remove_duplicates(frame_rois, tolerance=20, num_of_petris=8)
+
     logger.info(
         f"\nProcessing complete. Found {len(frame_rois)} filtered ROIs."
     )
     logger.info(f"Visualization saved to: '{output_image_name}'")
     logger.info(
-        f"Debug view saved to:    '{debug_img_name}' (Check this to tune!)"
+        f"Debug view saved to: '{debug_img_name}'"
     )
 
     cap.release()

@@ -218,30 +218,19 @@ def detect_first_larva_frame(
 
 
 def extract_8_dishes_to_frame_folders(
-    video_path, out_root, num_frames, dish_to_class, even_slice=True, roi_boxes=None
+    video_path, out_root, num_frames, dish_to_class, even_slice=False
 ):
     """
     Writes frames into: out_root/<ClassName>/frames_<video-stem>_dishK/frame_XXXX.png
     Divides video into 8 even regions (4 columns, 2 rows) with 5% tolerance padding.
     Returns total sequences written.
     """
-    os.makedirs(out_root, exist_ok=True)
-    cap = cv2.VideoCapture(video_path)
-    total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    logger.info(f"Video {video_path} has {total} frames.")
-
-    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-    ok, frame = cap.read()
-    if not ok:
-        raise ValueError(f"Cannot read first frame of {video_path}")
-    frame_h, frame_w = frame.shape[:2]
-
-    if even_slice and roi_boxes is not None:
+    def slice_evenly():
         cols = 4
         rows = 2
         dish_w = frame_w // cols
         dish_h = frame_h // rows
-        tolerance = 0.1  # 5%
+        tolerance = 0.1  
         pad_w = int(dish_w * tolerance)
         pad_h = int(dish_h * tolerance)
 
@@ -256,14 +245,30 @@ def extract_8_dishes_to_frame_folders(
                 h = y2 - y1
                 roi_boxes.append((x1, y1, w, h))
         logger.info(f"Generated even roi_boxes with padding: {roi_boxes}")
+        return roi_boxes
+    
+    os.makedirs(out_root, exist_ok=True)
+    cap = cv2.VideoCapture(video_path)
+    total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    logger.info(f"Video {video_path} has {total} frames.")
+
+    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+    ok, frame = cap.read()
+    if not ok:
+        raise ValueError(f"Cannot read first frame of {video_path}")
+    frame_h, frame_w = frame.shape[:2]
+
+    if even_slice:
+        roi_boxes = slice_evenly()
     else:
         roi_boxes = find_shapes_first_frame(
             video_path, output_image_name="first_frame_ROIs.jpg"
         )
         if roi_boxes is None or len(roi_boxes) < 8:
-            raise ValueError(
-                f"Could not detect 8 ROIs in {video_path}, found {len(roi_boxes) if roi_boxes else 0}"
+            logger.warning(
+                "Insufficient ROIs detected, falling back to even slicing."
             )
+            roi_boxes = slice_evenly()
         roi_boxes = roi_boxes[:8]
         logger.info(f"Detected roi_boxes: {roi_boxes}")
 
@@ -410,6 +415,7 @@ def main():
                 out_root=tmp_data,
                 num_frames=config.NUM_FRAMES,
                 dish_to_class=config.DISH_TO_CLASS,
+                even_slice=False
             )
 
             logger.info("Training on this videos generated sequences")
