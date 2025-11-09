@@ -13,6 +13,7 @@ import src.config as config
 from src.datasets.frame_dataset import FrameDataset
 from src.models.cnn_lstm_model import CNNLSTM
 import pandas as pd
+from src.proc.find_edges_adaptive import find_shapes_first_frame
 
 transform = transforms.Compose(
     [
@@ -48,7 +49,8 @@ def list_s3_videos(bucket, prefix):
             if (
                 obj["Key"].lower().endswith(".mov")
                 and obj["Key"].startswith("L")
-                and obj["Key"].split(".")[0] in video_index["Video name"].values
+                and obj["Key"].split(".")[0]
+                in video_index["Video name"].values
             ):
                 yield obj["Key"]
         token = resp.get("NextContinuationToken")
@@ -78,7 +80,9 @@ def sample_frame_indices(total, num_frames, start=0):
     return [start + i * step for i in range(num_frames)]
 
 
-def detect_first_motion_frame(cap, roi, max_check=100, diff_thresh=7, max_diff=100):
+def detect_first_motion_frame(
+    cap, roi, max_check=100, diff_thresh=7, max_diff=100
+):
     logger.info(
         f"Detecting first motion frame in ROI: {roi} with max_check={max_check}, diff_thresh={diff_thresh}, max_diff={max_diff}"
     )
@@ -88,10 +92,16 @@ def detect_first_motion_frame(cap, roi, max_check=100, diff_thresh=7, max_diff=1
     for i in range(max_check):
         ok, frame = cap.read()
         if not ok:
-            logger.warning(f"Failed to read frame {i} during motion detection")
+            logger.warning(
+                f"Failed to read frame {i} during motion detection"
+            )
             break
-        gray = cv2.cvtColor(frame[y : y + h, x : x + w], cv2.COLOR_BGR2GRAY)
-        logger.debug(f"Motion detection frame {i} with mean pixel value {gray.mean()}")
+        gray = cv2.cvtColor(
+            frame[y : y + h, x : x + w], cv2.COLOR_BGR2GRAY
+        )
+        logger.debug(
+            f"Motion detection frame {i} with mean pixel value {gray.mean()}"
+        )
         if prev_gray is not None:
             diff = cv2.absdiff(gray, prev_gray)
             mean_diff = diff.mean()
@@ -101,57 +111,19 @@ def detect_first_motion_frame(cap, roi, max_check=100, diff_thresh=7, max_diff=1
             if max_val_found < mean_diff:
                 max_val_found = mean_diff
 
-            if mean_diff > diff_thresh and mean_diff < max_diff and gray.mean() < 10:
-                logger.info(f"Detected motion at frame {i} with mean diff {mean_diff}")
+            if (
+                mean_diff > diff_thresh
+                and mean_diff < max_diff
+                and gray.mean() < 10
+            ):
+                logger.info(
+                    f"Detected motion at frame {i} with mean diff {mean_diff}"
+                )
                 return i
         prev_gray = gray
     logger.info(
         f"No significant motion detected within {max_check} frames. Max diff found: {max_val_found}"
     )
-    return 0
-
-
-def detect_first_motion_frame_v2(
-    cap, roi, max_check=500, low_thresh=3, high_thresh=25, sustain_frames=5
-):
-    """
-    Detect first frame where motion inside ROI exceeds low_thresh for
-    several consecutive frames, but ignore very strong spikes (hands).
-    """
-    logger.info(
-        f"Detecting first motion frame (v2) in ROI: {roi} with max_check={max_check}, low_thresh={low_thresh}, high_thresh={high_thresh}, sustain_frames={sustain_frames}"
-    )
-    x, y, w, h = roi
-    prev_gray = None
-    motion_streak = 0
-
-    for i in range(max_check):
-        ok, frame = cap.read()
-        if not ok:
-            break
-
-        gray = cv2.cvtColor(frame[y : y + h, x : x + w], cv2.COLOR_BGR2GRAY)
-
-        if prev_gray is not None:
-            diff = cv2.absdiff(gray, prev_gray)
-            mean_diff = diff.mean()
-
-            if mean_diff > high_thresh:
-                motion_streak = 0
-                continue
-
-            if mean_diff > low_thresh:
-                motion_streak += 1
-                if motion_streak >= sustain_frames:
-                    logger.info(
-                        f"Detected sustained motion starting at frame {i - sustain_frames + 1}"
-                    )
-                    return max(0, i - sustain_frames)
-            else:
-                motion_streak = 0
-
-        prev_gray = gray
-
     return 0
 
 
@@ -178,7 +150,7 @@ def detect_first_larva_frame(
         max_larva_pixels: The maximum number of changed pixels. Above this is a hand.
         sustain_frames: How many consecutive frames motion must be sustained.
     """
-    logger.info(f"Detecting first larva frame with pixel counting...")
+    logger.info("Detecting first larva frame with pixel counting...")
 
     x, y, w, h = roi
     prev_gray = None
@@ -200,7 +172,9 @@ def detect_first_larva_frame(
         if prev_gray is not None:
             frame_delta = cv2.absdiff(prev_gray, gray)
 
-            thresh = cv2.threshold(frame_delta, diff_thresh, 255, cv2.THRESH_BINARY)[1]
+            thresh = cv2.threshold(
+                frame_delta, diff_thresh, 255, cv2.THRESH_BINARY
+            )[1]
 
             pixel_change_count = cv2.countNonZero(thresh)
 
@@ -211,11 +185,17 @@ def detect_first_larva_frame(
                     f"Frame {i}: Large motion detected ({pixel_change_count} pixels). Assuming hand, resetting."
                 )
 
-            elif hand_detected_recently and pixel_change_count < min_larva_pixels:
+            elif (
+                hand_detected_recently
+                and pixel_change_count < min_larva_pixels
+            ):
                 hand_detected_recently = False
                 logger.info(f"Frame {i}: Scene stabilizing after hand.")
 
-            elif not hand_detected_recently and pixel_change_count >= min_larva_pixels:
+            elif (
+                not hand_detected_recently
+                and pixel_change_count >= min_larva_pixels
+            ):
                 motion_streak += 1
                 logger.info(
                     f"Frame {i}: Potential larva motion detected ({pixel_change_count} pixels). Streak: {motion_streak}/{sustain_frames}"
@@ -231,12 +211,14 @@ def detect_first_larva_frame(
 
         prev_gray = gray
 
-    logger.warning("No sustained larva motion found within the first max_check frames.")
+    logger.warning(
+        "No sustained larva motion found within the first max_check frames."
+    )
     return 0
 
 
 def extract_8_dishes_to_frame_folders(
-    video_path, out_root, num_frames, dish_to_class
+    video_path, out_root, num_frames, dish_to_class, even_slice=True, roi_boxes=None
 ):
     """
     Writes frames into: out_root/<ClassName>/frames_<video-stem>_dishK/frame_XXXX.png
@@ -254,25 +236,36 @@ def extract_8_dishes_to_frame_folders(
         raise ValueError(f"Cannot read first frame of {video_path}")
     frame_h, frame_w = frame.shape[:2]
 
-    cols = 4
-    rows = 2
-    dish_w = frame_w // cols
-    dish_h = frame_h // rows
-    tolerance = 0.1  # 5%
-    pad_w = int(dish_w * tolerance)
-    pad_h = int(dish_h * tolerance)
+    if even_slice and roi_boxes is not None:
+        cols = 4
+        rows = 2
+        dish_w = frame_w // cols
+        dish_h = frame_h // rows
+        tolerance = 0.1  # 5%
+        pad_w = int(dish_w * tolerance)
+        pad_h = int(dish_h * tolerance)
 
-    roi_boxes = []
-    for col in range(cols):
-        for row in range(rows):
-            x1 = max(0, col * dish_w - pad_w)
-            y1 = max(0, row * dish_h - pad_h)
-            x2 = min(frame_w, (col + 1) * dish_w + pad_w)
-            y2 = min(frame_h, (row + 1) * dish_h + pad_h)
-            w = x2 - x1
-            h = y2 - y1
-            roi_boxes.append((x1, y1, w, h))
-    logger.info(f"Generated even roi_boxes with padding: {roi_boxes}")
+        roi_boxes = []
+        for col in range(cols):
+            for row in range(rows):
+                x1 = max(0, col * dish_w - pad_w)
+                y1 = max(0, row * dish_h - pad_h)
+                x2 = min(frame_w, (col + 1) * dish_w + pad_w)
+                y2 = min(frame_h, (row + 1) * dish_h + pad_h)
+                w = x2 - x1
+                h = y2 - y1
+                roi_boxes.append((x1, y1, w, h))
+        logger.info(f"Generated even roi_boxes with padding: {roi_boxes}")
+    else:
+        roi_boxes = find_shapes_first_frame(
+            video_path, output_image_name="first_frame_ROIs.jpg"
+        )
+        if roi_boxes is None or len(roi_boxes) < 8:
+            raise ValueError(
+                f"Could not detect 8 ROIs in {video_path}, found {len(roi_boxes) if roi_boxes else 0}"
+            )
+        roi_boxes = roi_boxes[:8]
+        logger.info(f"Detected roi_boxes: {roi_boxes}")
 
     stem = os.path.splitext(os.path.basename(video_path))[0]
     lower_name = os.path.splitext(os.path.basename(video_path))[0].lower()
@@ -282,7 +275,10 @@ def extract_8_dishes_to_frame_folders(
         logger.info(
             f"Detected 'etoh' in filename, assigning ethanol dishes to Ethanol"
         )
-        dish_to_class = {k: ("Ethanol" if v.startswith("Ethanol") else v) for k, v in dish_to_class.items()}
+        dish_to_class = {
+            k: ("Ethanol" if v.startswith("Ethanol") else v)
+            for k, v in dish_to_class.items()
+        }
 
     fps = cap.get(cv2.CAP_PROP_FPS)
     offset_seconds = [170.0, 155.0, 95.0, 60.0, 22.5, 0.0, 0.0, 0.0]
@@ -325,18 +321,32 @@ def extract_8_dishes_to_frame_folders(
     return len(targets)
 
 
-def train_one_video(model, optimizer, data_dir, device=config.DEVICE, num_frames=config.NUM_FRAMES, batch_size=config.BATCH_SIZE, epochs=config.NUM_EPOCHS):
+def train_one_video(
+    model,
+    optimizer,
+    data_dir,
+    device=config.DEVICE,
+    num_frames=config.NUM_FRAMES,
+    batch_size=config.BATCH_SIZE,
+    epochs=config.NUM_EPOCHS,
+):
     """
     Minimal train loop (per video) that reuses your dataset and settings.
     """
-    dataset = FrameDataset(data_dir, num_frames=num_frames, transform=transform)
+    dataset = FrameDataset(
+        data_dir, num_frames=num_frames, transform=transform
+    )
     if len(dataset) == 0:
-        logger.warning(f"No sequences found in {data_dir}, skipping training.")
+        logger.warning(
+            f"No sequences found in {data_dir}, skipping training."
+        )
         return 0, 0.0
 
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
     criterion = nn.CrossEntropyLoss()
-    logger.info(f"Training on {len(dataset)} sequences for {epochs} epochs.")
+    logger.info(
+        f"Training on {len(dataset)} sequences for {epochs} epochs."
+    )
 
     model.train()
     total, correct, running = 0, 0, 0.0
@@ -373,7 +383,9 @@ def main():
 
     device = config.DEVICE
     model = CNNLSTM(num_classes=config.NUM_CLASSES).to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=config.LEARNING_RATE)
+    optimizer = torch.optim.Adam(
+        model.parameters(), lr=config.LEARNING_RATE
+    )
 
     if os.path.exists(config.CHECKPOINT_PATH):
         ckpt = torch.load(config.CHECKPOINT_PATH, map_location=device)
@@ -410,7 +422,9 @@ def main():
                 batch_size=config.BATCH_SIZE,
                 epochs=config.EPOCHS_PER_VIDEO,
             )
-            logger.info(f"Trained on {nseq} sequences | approx acc: {acc:.1f}%")
+            logger.info(
+                f"Trained on {nseq} sequences | approx acc: {acc:.1f}%"
+            )
 
             torch.save(
                 {

@@ -11,7 +11,9 @@ cap.release()
 if not ret:
     raise RuntimeError("Failed to read video")
 
-rois = cv2.selectROIs("Select ROIs", frame, showCrosshair=True, fromCenter=False)
+rois = cv2.selectROIs(
+    "Select ROIs", frame, showCrosshair=True, fromCenter=False
+)
 cv2.destroyAllWindows()
 
 roi_boxes = [tuple(map(int, r)) for r in rois]

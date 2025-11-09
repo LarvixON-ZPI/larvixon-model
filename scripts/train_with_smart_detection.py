@@ -1,5 +1,6 @@
 import os
 import sys
+
 sys.path.append(".")
 import tempfile
 import torch
@@ -14,16 +15,20 @@ from src.utils.smart_extraction import SmartVideoExtractor
 from torchvision import transforms
 import pandas as pd
 
-transform = transforms.Compose([
-    transforms.Resize((112, 112)),
-    transforms.ToTensor(),
-    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-])
+transform = transforms.Compose(
+    [
+        transforms.Resize((112, 112)),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+    ]
+)
+
 
 def read_video_index():
     """Read the video index CSV file."""
     df = pd.read_csv("video_index.csv")
     return df
+
 
 def list_s3_videos(bucket, prefix):
     """List videos from S3 bucket that match the video index."""
@@ -36,7 +41,7 @@ def list_s3_videos(bucket, prefix):
     )
     token = None
     video_index = read_video_index()
- 
+
     while True:
         kwargs = dict(Bucket=bucket, Prefix=prefix)
         if token:
@@ -45,14 +50,18 @@ def list_s3_videos(bucket, prefix):
 
         for obj in resp.get("Contents", []):
             logger.debug(f"Found S3 object: {obj['Key']}")
-            if (obj["Key"].lower().endswith(".mov") and 
-                obj["Key"].startswith("L") and 
-                obj["Key"].split(".")[0] in video_index["Video name"].values):
+            if (
+                obj["Key"].lower().endswith(".mov")
+                and obj["Key"].startswith("L")
+                and obj["Key"].split(".")[0]
+                in video_index["Video name"].values
+            ):
                 yield obj["Key"]
 
         token = resp.get("NextContinuationToken")
         if not token:
             break
+
 
 def download_s3(bucket, key, dest_path):
     """Download file from S3."""
@@ -69,10 +78,16 @@ def download_s3(bucket, key, dest_path):
         obj = s3.get_object(Bucket=bucket, Key=key)
         f.write(obj["Body"].read())
 
-def train_one_video(model, optimizer, data_dir, device=config.DEVICE,
-                   num_frames=config.NUM_FRAMES, 
-                   batch_size=config.BATCH_SIZE, 
-                   epochs=config.EPOCHS_PER_VIDEO):
+
+def train_one_video(
+    model,
+    optimizer,
+    data_dir,
+    device=config.DEVICE,
+    num_frames=config.NUM_FRAMES,
+    batch_size=config.BATCH_SIZE,
+    epochs=config.EPOCHS_PER_VIDEO,
+):
     """
     Train model on sequences from one video.
 
@@ -89,16 +104,21 @@ def train_one_video(model, optimizer, data_dir, device=config.DEVICE,
     - total_sequences: Number of sequences processed
     - accuracy: Training accuracy
     """
-    dataset = FrameDataset(data_dir, num_frames=num_frames, 
-                          transform=transform)
+    dataset = FrameDataset(
+        data_dir, num_frames=num_frames, transform=transform
+    )
     if len(dataset) == 0:
-        logger.warning(f"No sequences found in {data_dir}, skipping training.")
+        logger.warning(
+            f"No sequences found in {data_dir}, skipping training."
+        )
         return 0, 0.0
 
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
     criterion = nn.CrossEntropyLoss()
 
-    logger.info(f"Training on {len(dataset)} sequences for {epochs} epochs.")
+    logger.info(
+        f"Training on {len(dataset)} sequences for {epochs} epochs."
+    )
     model.train()
     total, correct, running_loss = 0, 0, 0.0
 
@@ -110,14 +130,13 @@ def train_one_video(model, optimizer, data_dir, device=config.DEVICE,
         for frames, labels in loader:
             frames, labels = frames.to(device), labels.to(device)
 
-
             logits = model(frames)
             loss = criterion(logits, labels)
-            
+
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            
+
             running_loss += loss.item()
             epoch_loss += loss.item()
 
@@ -130,18 +149,27 @@ def train_one_video(model, optimizer, data_dir, device=config.DEVICE,
             epoch_correct += correct_batch
             epoch_total += batch_size_actual
 
-        epoch_acc = (100.0 * epoch_correct / epoch_total) if epoch_total else 0.0
+        epoch_acc = (
+            (100.0 * epoch_correct / epoch_total) if epoch_total else 0.0
+        )
         epoch_avg_loss = epoch_loss / len(loader) if len(loader) else 0.0
-        logger.info(f"Epoch {epoch+1}/{epochs}: Loss={epoch_avg_loss:.4f}, "
-                   f"Acc={epoch_acc:.1f}%")
+        logger.info(
+            f"Epoch {epoch+1}/{epochs}: Loss={epoch_avg_loss:.4f}, "
+            f"Acc={epoch_acc:.1f}%"
+        )
 
     acc = (100.0 * correct / total) if total else 0.0
-    avg_loss = running_loss / (len(loader) * epochs) if len(loader) else 0.0
+    avg_loss = (
+        running_loss / (len(loader) * epochs) if len(loader) else 0.0
+    )
 
-    logger.info(f"Training completed: {total} total samples, "
-               f"Avg Loss={avg_loss:.4f}, Acc={acc:.1f}%")
+    logger.info(
+        f"Training completed: {total} total samples, "
+        f"Avg Loss={avg_loss:.4f}, Acc={acc:.1f}%"
+    )
 
     return total, acc
+
 
 def analyze_video_before_training(video_path: str) -> bool:
     """
@@ -156,7 +184,7 @@ def analyze_video_before_training(video_path: str) -> bool:
     try:
         extractor = SmartVideoExtractor(use_detected_rois=True)
         analysis = extractor.analyze_video_quality(video_path)
- 
+
         if "error" in analysis:
             logger.error(f"Video analysis failed: {analysis['error']}")
             return False
@@ -169,28 +197,39 @@ def analyze_video_before_training(video_path: str) -> bool:
         logger.info(f"  Duration: {video_info['duration_seconds']:.1f}s")
         logger.info(f"  Resolution: {video_info['resolution']}")
         logger.info(f"  FPS: {video_info['fps']:.1f}")
-        logger.info(f"  Avg Brightness: {quality_metrics['avg_brightness']:.1f}")
-        logger.info(f"  Avg Contrast: {quality_metrics['avg_contrast']:.1f}")
-        logger.info(f"  Detected Dishes: {detection_results['num_dishes_detected']}")
+        logger.info(
+            f"  Avg Brightness: {quality_metrics['avg_brightness']:.1f}"
+        )
+        logger.info(
+            f"  Avg Contrast: {quality_metrics['avg_contrast']:.1f}"
+        )
+        logger.info(
+            f"  Detected Dishes: {detection_results['num_dishes_detected']}"
+        )
 
         for rec in analysis["recommendations"]:
             logger.info(f"  Recommendation: {rec}")
 
         if detection_results["num_dishes_detected"] == 0:
-            logger.warning("No dishes detected - video may not be suitable")
+            logger.warning(
+                "No dishes detected - video may not be suitable"
+            )
             return False
 
         if quality_metrics["avg_brightness"] < 20:
             logger.warning("Video very dark - may affect training quality")
 
         if quality_metrics["avg_contrast"] < 10:
-            logger.warning("Very low contrast - may affect training quality")
+            logger.warning(
+                "Very low contrast - may affect training quality"
+            )
 
         return True
 
     except Exception as e:
         logger.error(f"Video analysis failed with exception: {e}")
         return False
+
 
 def main():
     """Main training function with smart detection."""
@@ -206,7 +245,9 @@ def main():
 
     device = config.DEVICE
     model = CNNLSTM(num_classes=config.NUM_CLASSES).to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=config.LEARNING_RATE)
+    optimizer = torch.optim.Adam(
+        model.parameters(), lr=config.LEARNING_RATE
+    )
 
     if os.path.exists(config.CHECKPOINT_PATH):
         logger.info(f"Loading checkpoint from {config.CHECKPOINT_PATH}")
@@ -234,10 +275,12 @@ def main():
 
             logger.info(f"Downloading s3://{config.S3_BUCKET}/{key}")
             download_s3(config.S3_BUCKET, key, local_video_path)
-            
+
             logger.info("Analyzing video quality...")
             if not analyze_video_before_training(local_video_path):
-                logger.warning(f"Skipping video {key} due to quality issues")
+                logger.warning(
+                    f"Skipping video {key} due to quality issues"
+                )
                 continue
 
             logger.info("Extracting frames with smart detection...")
@@ -245,15 +288,19 @@ def main():
                 video_path=local_video_path,
                 output_dir=tmp_data_dir,
                 num_frames=config.NUM_FRAMES,
-                dish_to_class=config.DISH_TO_CLASS
+                dish_to_class=config.DISH_TO_CLASS,
             )
 
             if sequences_created == 0:
-                logger.warning(f"No sequences created from {key}, skipping")
+                logger.warning(
+                    f"No sequences created from {key}, skipping"
+                )
                 continue
 
             total_sequences_created += sequences_created
-            logger.info(f"Created {sequences_created} sequences from video")
+            logger.info(
+                f"Created {sequences_created} sequences from video"
+            )
 
             logger.info("Training on extracted sequences...")
             num_samples, accuracy = train_one_video(
@@ -267,8 +314,10 @@ def main():
             )
 
             if num_samples > 0:
-                logger.info(f"Trained on {num_samples} samples | "
-                           f"Accuracy: {accuracy:.1f}%")
+                logger.info(
+                    f"Trained on {num_samples} samples | "
+                    f"Accuracy: {accuracy:.1f}%"
+                )
                 total_videos_processed += 1
             else:
                 logger.warning(f"No training samples from {key}")
@@ -281,7 +330,9 @@ def main():
                 "sequences_created": total_sequences_created,
             }
             torch.save(checkpoint, config.CHECKPOINT_PATH)
-            logger.info(f"Checkpoint saved after processing video {total_videos_processed}")
+            logger.info(
+                f"Checkpoint saved after processing video {total_videos_processed}"
+            )
 
         if device.type == "cuda":
             torch.cuda.empty_cache()
