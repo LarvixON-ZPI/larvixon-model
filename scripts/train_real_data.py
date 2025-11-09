@@ -246,6 +246,24 @@ def extract_8_dishes_to_frame_folders(
                 roi_boxes.append((x1, y1, w, h))
         logger.info(f"Generated even roi_boxes with padding: {roi_boxes}")
         return roi_boxes
+
+    def replace_even(even_rois, detected_rois, tolerance=40):
+        replaced = []
+        for i in range(len(even_rois)):
+            x, y, w, h = roi
+            for f_roi in detected_rois:
+                fx, fy, fw, fh = f_roi
+                if (
+                    abs(x - fx) < tolerance
+                    and abs(y - fy) < tolerance
+                    and abs(w - fw) < tolerance
+                    and abs(h - fh) < tolerance
+                ):
+                    replaced.append(f_roi)
+                    break
+            else:
+                replaced.append(even_rois[i])
+        return replaced
     
     os.makedirs(out_root, exist_ok=True)
     cap = cv2.VideoCapture(video_path)
@@ -258,9 +276,8 @@ def extract_8_dishes_to_frame_folders(
         raise ValueError(f"Cannot read first frame of {video_path}")
     frame_h, frame_w = frame.shape[:2]
 
-    if even_slice:
-        roi_boxes = slice_evenly()
-    else:
+    even_boxes = slice_evenly()
+    if not even_slice:
         roi_boxes = find_shapes_first_frame(
             video_path, output_image_name="first_frame_ROIs.jpg"
         )
@@ -268,7 +285,15 @@ def extract_8_dishes_to_frame_folders(
             logger.warning(
                 "Insufficient ROIs detected, falling back to even slicing."
             )
-            roi_boxes = slice_evenly()
+            if len(roi_boxes):
+                logger.info(f"Detected roi_boxes: {roi_boxes}. Inserting missing boxes.")
+                roi_boxes = replace_even(even_boxes, roi_boxes)
+            else:
+                logger.info("No ROIs detected. Using even slicing for all boxes.")
+                roi_boxes = even_boxes
+    else:
+        roi_boxes = even_boxes
+
         roi_boxes = roi_boxes[:8]
         logger.info(f"Detected roi_boxes: {roi_boxes}")
 
