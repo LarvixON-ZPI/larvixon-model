@@ -2,7 +2,9 @@ import cv2
 import os
 
 
-def find_edges_first_frame(video_path, output_image_name="first_frame_edges.jpg"):
+def find_edges_first_frame(
+    video_path, output_image_name="first_frame_edges.jpg"
+):
     """
     Analyzes only the first frame of a video to find all edge contours
     and their bounding boxes (ROIs).
@@ -14,7 +16,7 @@ def find_edges_first_frame(video_path, output_image_name="first_frame_edges.jpg"
         output_image_name (str): Filename to save the visualization.
 
     Returns:
-        list: A list of tuples. Each tuple represents an ROI in 
+        list: A list of tuples. Each tuple represents an ROI in
               (x, y, w, h) format.
               Returns None if the video cannot be opened or frame read.
     """
@@ -38,9 +40,13 @@ def find_edges_first_frame(video_path, output_image_name="first_frame_edges.jpg"
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     low_thresh = 20
     high_thresh = 40
-    print(f"Running Canny edge detection with thresholds: {low_thresh}, {high_thresh}")
+    print(
+        f"Running Canny edge detection with thresholds: {low_thresh}, {high_thresh}"
+    )
     edges = cv2.Canny(gray, low_thresh, high_thresh)
-    contours, _ = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(
+        edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE
+    )
     frame_rois = []
 
     for contour in contours:
@@ -61,12 +67,14 @@ def find_edges_first_frame(video_path, output_image_name="first_frame_edges.jpg"
 
 if __name__ == "__main__":
 
-    VIDEO_FILE_PATH = "/home/coolka/projects/python/larvixon_model/internal_data/L_RL_2025_09_22_48.mov" 
+    VIDEO_FILE_PATH = "/home/coolka/projects/python/larvixon_model/internal_data/L_RL_2025_09_22_48.mov"
 
     roi_data = find_edges_first_frame(VIDEO_FILE_PATH)
 
     if roi_data is not None:
-        print(f"\n--- ROI Data for First Frame (Total: {len(roi_data)}) ---")
+        print(
+            f"\n--- ROI Data for First Frame (Total: {len(roi_data)}) ---"
+        )
         print(roi_data[:10])
     else:
         print("Could not process the video.")

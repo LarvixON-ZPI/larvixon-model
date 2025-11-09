@@ -12,18 +12,20 @@ class PetriDishDetector:
     frames. Provides automatic ROI detection to replace manual selection.
     """
 
-    def __init__(self, 
-                 min_area: int = 10000,
-                 max_area: int = 200000,
-                 min_aspect_ratio: float = 0.7,
-                 max_aspect_ratio: float = 1.4,
-                 min_extent: float = 0.6):
+    def __init__(
+        self,
+        min_area: int = 10000,
+        max_area: int = 200000,
+        min_aspect_ratio: float = 0.7,
+        max_aspect_ratio: float = 1.4,
+        min_extent: float = 0.6,
+    ):
         """
         Initialize the petri dish detector.
 
         Parameters:
         - min_area: Minimum area of detected dishes in pixels
-        - max_area: Maximum area of detected dishes in pixels  
+        - max_area: Maximum area of detected dishes in pixels
         - min_aspect_ratio: Minimum width/height ratio for dishes
         - max_aspect_ratio: Maximum width/height ratio for dishes
         - min_extent: Minimum extent (area/bounding_rect_area) for rounded
@@ -52,7 +54,7 @@ class PetriDishDetector:
         blurred = cv2.GaussianBlur(filtered, (5, 5), 0)
 
         return blurred
-    
+
     def detect_edges(self, gray_frame: np.ndarray) -> np.ndarray:
         """
         Detect edges in the preprocessed frame.
@@ -65,8 +67,12 @@ class PetriDishDetector:
         """
 
         adaptive_thresh = cv2.adaptiveThreshold(
-            gray_frame, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-            cv2.THRESH_BINARY, 11, 2
+            gray_frame,
+            255,
+            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY,
+            11,
+            2,
         )
 
         edges = cv2.Canny(gray_frame, 50, 150, apertureSize=3)
@@ -81,10 +87,10 @@ class PetriDishDetector:
     def filter_contours(self, contours) -> List[np.ndarray]:
         """
         Filter contours to find potential petri dishes.
-        
+
         Parameters:
         - contours: List of detected contours
-        
+
         Returns:
         - Filtered list of contours that could be petri dishes
         """
@@ -99,8 +105,10 @@ class PetriDishDetector:
             x, y, w, h = cv2.boundingRect(contour)
             aspect_ratio = float(w) / h
 
-            if (aspect_ratio < self.min_aspect_ratio or 
-                aspect_ratio > self.max_aspect_ratio):
+            if (
+                aspect_ratio < self.min_aspect_ratio
+                or aspect_ratio > self.max_aspect_ratio
+            ):
                 continue
 
             rect_area = w * h
@@ -119,8 +127,9 @@ class PetriDishDetector:
 
         return valid_contours
 
-    def validate_dish_appearance(self, frame: np.ndarray, 
-                               roi: Tuple[int, int, int, int]) -> bool:
+    def validate_dish_appearance(
+        self, frame: np.ndarray, roi: Tuple[int, int, int, int]
+    ) -> bool:
         """
         Validate that the ROI actually looks like a petri dish.
 
@@ -133,13 +142,12 @@ class PetriDishDetector:
         """
         x, y, w, h = roi
 
-        roi_frame = frame[y:y+h, x:x+w]
+        roi_frame = frame[y : y + h, x : x + w]
 
         if roi_frame.size == 0:
             return False
 
         gray_roi = cv2.cvtColor(roi_frame, cv2.COLOR_BGR2GRAY)
-
 
         std_dev = float(np.std(gray_roi.astype(np.float32)))
 
@@ -155,9 +163,12 @@ class PetriDishDetector:
 
         return True
 
-    def detect_dishes(self, frame: np.ndarray, 
-                     validate_appearance: bool = True,
-                     min_distance: int = 50) -> List[Tuple[int, int, int, int]]:
+    def detect_dishes(
+        self,
+        frame: np.ndarray,
+        validate_appearance: bool = True,
+        min_distance: int = 50,
+    ) -> List[Tuple[int, int, int, int]]:
         """
         Detect petri dishes in a frame.
 
@@ -175,14 +186,17 @@ class PetriDishDetector:
 
         edges = self.detect_edges(gray)
 
-        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, 
-                                      cv2.CHAIN_APPROX_SIMPLE)
+        contours, _ = cv2.findContours(
+            edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        )
 
         logger.info(f"Found {len(contours)} total contours")
 
         valid_contours = self.filter_contours(list(contours))
 
-        logger.info(f"Found {len(valid_contours)} valid contours after filtering")
+        logger.info(
+            f"Found {len(valid_contours)} valid contours after filtering"
+        )
 
         detected_dishes = []
         for contour in valid_contours:
@@ -196,25 +210,31 @@ class PetriDishDetector:
 
             roi = (x, y, w, h)
 
-            if (validate_appearance and 
-                not self.validate_dish_appearance(frame, roi)):
-                logger.debug(f"Rejected ROI {roi} due to appearance "
-                           f"validation")
+            if validate_appearance and not self.validate_dish_appearance(
+                frame, roi
+            ):
+                logger.debug(
+                    f"Rejected ROI {roi} due to appearance " f"validation"
+                )
                 continue
 
             detected_dishes.append(roi)
 
-        filtered_dishes = self.remove_overlapping_detections(detected_dishes, 
-                                                           min_distance)
+        filtered_dishes = self.remove_overlapping_detections(
+            detected_dishes, min_distance
+        )
 
-        logger.info(f"Final detection result: {len(filtered_dishes)} petri dishes")
+        logger.info(
+            f"Final detection result: {len(filtered_dishes)} petri dishes"
+        )
 
         return filtered_dishes
 
     def remove_overlapping_detections(
         self,
-        detections: List[Tuple[int, int, int, int]], 
-        min_distance: int) -> List[Tuple[int, int, int, int]]:
+        detections: List[Tuple[int, int, int, int]],
+        min_distance: int,
+    ) -> List[Tuple[int, int, int, int]]:
         """
         Remove overlapping or too-close detections.
 
@@ -239,8 +259,10 @@ class PetriDishDetector:
             too_close = False
             for j in keep:
                 other_center = centers[j]
-                distance = np.sqrt((center[0] - other_center[0])**2 + 
-                                 (center[1] - other_center[1])**2)
+                distance = np.sqrt(
+                    (center[0] - other_center[0]) ** 2
+                    + (center[1] - other_center[1]) ** 2
+                )
                 if distance < min_distance:
                     too_close = True
                     break
@@ -250,9 +272,12 @@ class PetriDishDetector:
 
         return [detections[i] for i in keep]
 
-    def visualize_detections(self, frame: np.ndarray, 
-                           detections: List[Tuple[int, int, int, int]],
-                           save_path: Optional[str] = None) -> np.ndarray:
+    def visualize_detections(
+        self,
+        frame: np.ndarray,
+        detections: List[Tuple[int, int, int, int]],
+        save_path: Optional[str] = None,
+    ) -> np.ndarray:
         """
         Visualize detected petri dishes on the frame.
 
@@ -267,11 +292,20 @@ class PetriDishDetector:
         vis_frame = frame.copy()
 
         for i, (x, y, w, h) in enumerate(detections):
-            cv2.rectangle(vis_frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            cv2.rectangle(
+                vis_frame, (x, y), (x + w, y + h), (0, 255, 0), 2
+            )
 
             label = f"Dish {i}"
-            cv2.putText(vis_frame, label, (x, y - 10), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+            cv2.putText(
+                vis_frame,
+                label,
+                (x, y - 10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (0, 255, 0),
+                2,
+            )
 
         if save_path:
             cv2.imwrite(save_path, vis_frame)
@@ -281,9 +315,10 @@ class PetriDishDetector:
 
 
 def detect_dishes_in_video(
-    video_path: str, 
+    video_path: str,
     frame_index: int = 0,
-    save_detection_image: bool = True) -> List[Tuple[int, int, int, int]]:
+    save_detection_image: bool = True,
+) -> List[Tuple[int, int, int, int]]:
     """
     Convenience function to detect petri dishes in a specific video frame.
 
@@ -320,8 +355,9 @@ def detect_dishes_in_video(
 
 
 def save_detections_to_json(
-    detections: List[Tuple[int, int, int, int]], 
-    output_path: str = "detected_roi_boxes.json"):
+    detections: List[Tuple[int, int, int, int]],
+    output_path: str = "detected_roi_boxes.json",
+):
     """
     Save detected ROIs to JSON file in the same format as roi_boxes.json.
 
@@ -329,7 +365,7 @@ def save_detections_to_json(
     - detections: List of detected dish ROIs
     - output_path: Output JSON file path
     """
-    with open(output_path, 'w') as f:
+    with open(output_path, "w") as f:
         json.dump(detections, f, indent=2)
 
     logger.info(f"Saved {len(detections)} detected ROIs to {output_path}")

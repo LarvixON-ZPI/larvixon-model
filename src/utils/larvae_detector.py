@@ -10,11 +10,13 @@ class LarvaeDetector:
     Enhances existing motion detection to work with automatically detected
     dishes.
     """
- 
-    def __init__(self, 
-                 background_history: int = 500,
-                 var_threshold: float = 16,
-                 detect_shadows: bool = False):
+
+    def __init__(
+        self,
+        background_history: int = 500,
+        var_threshold: float = 16,
+        detect_shadows: bool = False,
+    ):
         """
         Initialize the larvae detector.
 
@@ -32,16 +34,18 @@ class LarvaeDetector:
         return cv2.createBackgroundSubtractorMOG2(
             history=self.background_history,
             varThreshold=self.var_threshold,
-            detectShadows=self.detect_shadows
+            detectShadows=self.detect_shadows,
         )
 
-    def detect_larvae_appearance(self,
-                               video_path: str,
-                               dish_rois: List[Tuple[int, int, int, int]],
-                               max_frames_check: int = 500,
-                               min_motion_area: int = 100,
-                               max_motion_area: int = 5000,
-                               sustain_frames: int = 5) -> List[int]:
+    def detect_larvae_appearance(
+        self,
+        video_path: str,
+        dish_rois: List[Tuple[int, int, int, int]],
+        max_frames_check: int = 500,
+        min_motion_area: int = 100,
+        max_motion_area: int = 5000,
+        sustain_frames: int = 5,
+    ) -> List[int]:
         """
         Detect when larvae first appear in each petri dish.
 
@@ -56,16 +60,17 @@ class LarvaeDetector:
         Returns:
         - List of frame indices where larvae first appear in each dish
         """
-        logger.info(f"Detecting larvae appearance in {len(dish_rois)} dishes")
+        logger.info(
+            f"Detecting larvae appearance in {len(dish_rois)} dishes"
+        )
 
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
             raise ValueError(f"Cannot open video: {video_path}")
 
-
-        bg_subtractors = [self.create_background_subtractor() 
-                         for _ in dish_rois]
-
+        bg_subtractors = [
+            self.create_background_subtractor() for _ in dish_rois
+        ]
 
         motion_streaks = [0] * len(dish_rois)
         first_appearance = [-1] * len(dish_rois)
@@ -79,29 +84,39 @@ class LarvaeDetector:
                 if first_appearance[dish_idx] != -1:
                     continue
 
-                roi_frame = frame[y:y+h, x:x+w]
+                roi_frame = frame[y : y + h, x : x + w]
                 if roi_frame.size == 0:
                     continue
 
                 fg_mask = bg_subtractors[dish_idx].apply(roi_frame)
 
-                kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+                kernel = cv2.getStructuringElement(
+                    cv2.MORPH_ELLIPSE, (3, 3)
+                )
                 fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_OPEN, kernel)
-                fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_CLOSE, kernel)
+                fg_mask = cv2.morphologyEx(
+                    fg_mask, cv2.MORPH_CLOSE, kernel
+                )
 
-                contours, _ = cv2.findContours(fg_mask, cv2.RETR_EXTERNAL,
-                                             cv2.CHAIN_APPROX_SIMPLE)
+                contours, _ = cv2.findContours(
+                    fg_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+                )
 
-                total_motion_area = sum(cv2.contourArea(c) for c in contours)
+                total_motion_area = sum(
+                    cv2.contourArea(c) for c in contours
+                )
 
-                if (min_motion_area <= total_motion_area <= max_motion_area):
+                if min_motion_area <= total_motion_area <= max_motion_area:
                     motion_streaks[dish_idx] += 1
 
                     if motion_streaks[dish_idx] >= sustain_frames:
-                        first_appearance[dish_idx] = max(0, 
-                                                       frame_idx - sustain_frames)
-                        logger.info(f"Larvae detected in dish {dish_idx} "
-                                  f"at frame {first_appearance[dish_idx]}")
+                        first_appearance[dish_idx] = max(
+                            0, frame_idx - sustain_frames
+                        )
+                        logger.info(
+                            f"Larvae detected in dish {dish_idx} "
+                            f"at frame {first_appearance[dish_idx]}"
+                        )
                 else:
                     motion_streaks[dish_idx] = 0
 
@@ -115,16 +130,20 @@ class LarvaeDetector:
         for i in range(len(first_appearance)):
             if first_appearance[i] == -1:
                 first_appearance[i] = 0
-                logger.warning(f"No larvae detected in dish {i}, "
-                             f"starting from frame 0")
+                logger.warning(
+                    f"No larvae detected in dish {i}, "
+                    f"starting from frame 0"
+                )
 
         return first_appearance
 
-    def validate_larvae_presence(self,
-                               video_path: str,
-                               dish_roi: Tuple[int, int, int, int],
-                               start_frame: int,
-                               num_frames_check: int = 50) -> bool:
+    def validate_larvae_presence(
+        self,
+        video_path: str,
+        dish_roi: Tuple[int, int, int, int],
+        start_frame: int,
+        num_frames_check: int = 50,
+    ) -> bool:
         """
         Validate that larvae are actually present in a dish starting from
         a specific frame.
@@ -155,7 +174,7 @@ class LarvaeDetector:
             if not ret:
                 break
 
-            roi_frame = frame[y:y+h, x:x+w]
+            roi_frame = frame[y : y + h, x : x + w]
             if roi_frame.size == 0:
                 continue
 
@@ -173,29 +192,31 @@ class LarvaeDetector:
         motion_ratio = motion_frames / max(total_frames, 1)
         return motion_ratio > 0.2
 
-    def get_quality_frames(self,
-                         video_path: str,
-                         dish_roi: Tuple[int, int, int, int],
-                         start_frame: int,
-                         end_frame: int,
-                         target_frames: int = 225) -> List[int]:
+    def get_quality_frames(
+        self,
+        video_path: str,
+        dish_roi: Tuple[int, int, int, int],
+        start_frame: int,
+        end_frame: int,
+        target_frames: int = 225,
+    ) -> List[int]:
         """
         Select high-quality frames from a dish ROI for model training.
- 
+
         Parameters:
         - video_path: Path to video file
         - dish_roi: Single dish ROI (x, y, w, h)
         - start_frame: Start frame for extraction
         - end_frame: End frame for extraction
         - target_frames: Number of frames to select
- 
+
         Returns:
         - List of frame indices with good quality
         """
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
             return []
- 
+
         x, y, w, h = dish_roi
         frame_qualities = []
 
@@ -212,7 +233,7 @@ class LarvaeDetector:
             if not ret:
                 continue
 
-            roi_frame = frame[y:y+h, x:x+w]
+            roi_frame = frame[y : y + h, x : x + w]
             if roi_frame.size == 0:
                 continue
 
@@ -230,19 +251,23 @@ class LarvaeDetector:
                 quality_score *= 0.5
 
             frame_qualities.append((frame_idx, quality_score))
-      
+
         cap.release()
 
         frame_qualities.sort(key=lambda x: x[1], reverse=True)
-        selected_frames = [idx for idx, _ in frame_qualities[:target_frames]]
+        selected_frames = [
+            idx for idx, _ in frame_qualities[:target_frames]
+        ]
         selected_frames.sort()
 
         return selected_frames
 
 
-def detect_larvae_in_dishes(video_path: str,
-                          dish_rois: List[Tuple[int, int, int, int]],
-                          max_frames_check: int = 500) -> List[int]:
+def detect_larvae_in_dishes(
+    video_path: str,
+    dish_rois: List[Tuple[int, int, int, int]],
+    max_frames_check: int = 500,
+) -> List[int]:
     """
     Convenience function to detect larvae appearance in multiple dishes.
 
@@ -255,5 +280,6 @@ def detect_larvae_in_dishes(video_path: str,
     - List of frame indices where larvae first appear
     """
     detector = LarvaeDetector()
-    return detector.detect_larvae_appearance(video_path, dish_rois, 
-                                           max_frames_check)
+    return detector.detect_larvae_appearance(
+        video_path, dish_rois, max_frames_check
+    )
