@@ -21,4 +21,5 @@ __pycache__/
 # Ignore internal data folders
 internal_data/*
 *copy*
+*.jpg
 
