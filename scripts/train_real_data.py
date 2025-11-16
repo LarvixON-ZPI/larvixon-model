@@ -50,7 +50,8 @@ def list_s3_videos(bucket, prefix):
                 obj["Key"].lower().endswith(".mov")
                 and obj["Key"].startswith("L")
                 and obj["Key"].split(".")[0]
-                in video_index["Video name"].values
+                and "EtOH" not in obj["Key"]
+                # in video_index["Video name"].values //so index is wrong I think, lets discard it
             ):
                 yield obj["Key"]
         token = resp.get("NextContinuationToken")

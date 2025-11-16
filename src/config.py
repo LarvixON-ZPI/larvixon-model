@@ -30,6 +30,7 @@ _default_classes = "Redbull, Ethanol, Water (H2O), Nothing"
 #     "Water (H2O)" : "Ethanol",
 #     "Nothing" : "Redbull"
 # }
+
 CLASS_NAMES = os.getenv("CLASS_NAMES", _default_classes).split(", ")
 
 S3_BUCKET = "s3min-adam.junka-1744366756"
