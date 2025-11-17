@@ -47,11 +47,9 @@ class GridBasedPetriDetector:
         """
         height, width = frame.shape[:2]
 
-        # Calculate grid cell dimensions
         cell_width = width // self.grid_cols
         cell_height = height // self.grid_rows
 
-        # Calculate padding
         pad_w = int(cell_width * self.padding_ratio)
         pad_h = int(cell_height * self.padding_ratio)
 
@@ -59,24 +57,20 @@ class GridBasedPetriDetector:
 
         for row in range(self.grid_rows):
             for col in range(self.grid_cols):
-                # Calculate base cell position
                 x = col * cell_width
                 y = row * cell_height
 
-                # Apply padding
                 roi_x = x + pad_w
                 roi_y = y + pad_h
                 roi_w = cell_width - 2 * pad_w
                 roi_h = cell_height - 2 * pad_h
 
-                # Ensure ROI is within frame bounds
                 roi_x = max(0, roi_x)
                 roi_y = max(0, roi_y)
                 roi_w = min(roi_w, width - roi_x)
                 roi_h = min(roi_h, height - roi_y)
 
                 if roi_w > 0 and roi_h > 0:
-                    # Validate that this region contains interesting content
                     if self._validate_roi_content(
                         frame, (roi_x, roi_y, roi_w, roi_h)
                     ):
@@ -102,26 +96,21 @@ class GridBasedPetriDetector:
         """
         x, y, w, h = roi
 
-        # Extract ROI
         roi_frame = frame[y : y + h, x : x + w]
 
         if roi_frame.size == 0:
             return False
 
-        # Convert to grayscale for analysis
         if len(roi_frame.shape) == 3:
             gray_roi = cv2.cvtColor(roi_frame, cv2.COLOR_BGR2GRAY)
         else:
             gray_roi = roi_frame
 
-        # Check variance (empty regions have low variance)
         variance = np.var(gray_roi.astype(np.float32))
 
-        # Check if variance is above threshold
         if variance < self.min_variance_threshold:
             return False
-
-        # Additional check: look for circular/dish-like patterns
+            
         return self._check_for_dish_patterns(gray_roi)
 
     def _check_for_dish_patterns(self, gray_roi: np.ndarray) -> bool:
@@ -134,10 +123,8 @@ class GridBasedPetriDetector:
         Returns:
         - True if dish-like patterns are detected
         """
-        # Apply Gaussian blur to reduce noise
         blurred = cv2.GaussianBlur(gray_roi, (5, 5), 0)
 
-        # Try to detect circular patterns using HoughCircles
         circles = cv2.HoughCircles(
             blurred,
             cv2.HOUGH_GRADIENT,
@@ -149,29 +136,24 @@ class GridBasedPetriDetector:
             maxRadius=int(min(gray_roi.shape) * 0.8),
         )
 
-        # If circles detected, consider it a dish
         if circles is not None and len(circles[0]) > 0:
             return True
 
-        # Alternative: check for edge density (dishes have edges)
         edges = cv2.Canny(blurred, 30, 100)
         edge_density = np.count_nonzero(edges) / edges.size
 
-        # If sufficient edges, likely contains a dish
-        if edge_density > 0.02:  # 2% of pixels are edges
+        if edge_density > 0.02: 
             return True
 
-        # Final check: variance in center vs edges
         h, w = gray_roi.shape
         center_region = gray_roi[h // 4 : 3 * h // 4, w // 4 : 3 * w // 4]
         center_var = np.var(center_region.astype(np.float32))
         total_var = np.var(gray_roi.astype(np.float32))
 
-        # If center has different variance than whole region, likely a dish
         if abs(center_var - total_var) > 50:
             return True
 
-        return True  # Default to True for permissive detection
+        return True 
 
 
 class AdaptiveGridDetector:
@@ -209,7 +191,7 @@ class AdaptiveGridDetector:
             detector = GridBasedPetriDetector(
                 grid_rows=config["rows"],
                 grid_cols=config["cols"],
-                padding_ratio=0.15,  # More conservative padding
+                padding_ratio=0.15, 
             )
 
             detections = detector.detect_grid_layout(frame)
@@ -256,32 +238,26 @@ class AdaptiveGridDetector:
             if roi_frame.size == 0:
                 continue
 
-            # Convert to grayscale
             if len(roi_frame.shape) == 3:
                 gray_roi = cv2.cvtColor(roi_frame, cv2.COLOR_BGR2GRAY)
             else:
                 gray_roi = roi_frame
 
-            # Score based on variance (good content has moderate variance)
             variance = np.var(gray_roi.astype(np.float32))
-            variance_score = min(variance / 1000, 1.0)  # Normalize
+            variance_score = min(variance / 1000, 1.0)
 
-            # Score based on size reasonableness
             area = w * h
-            size_score = min(area / 50000, 1.0)  # Reasonable size
+            size_score = min(area / 50000, 1.0)  
 
-            # Score based on aspect ratio (should be roughly square)
             aspect_ratio = w / h
             ar_score = 1.0 - abs(
                 aspect_ratio - 1.0
-            )  # Closer to 1.0 is better
+            )  
             ar_score = max(0, ar_score)
 
-            # Combined score for this ROI
             roi_score = (variance_score + size_score + ar_score) / 3
             total_score += roi_score
 
-        # Average score per detection
         return total_score / len(detections)
 
 
@@ -307,7 +283,6 @@ def detect_dishes_with_grid(
     if save_visualization:
         vis_frame = frame.copy()
 
-        # Draw detected regions
         for i, (x, y, w, h) in enumerate(detections):
             cv2.rectangle(
                 vis_frame, (x, y), (x + w, y + h), (0, 255, 0), 3
@@ -322,7 +297,6 @@ def detect_dishes_with_grid(
                 2,
             )
 
-        # Add configuration info
         cv2.putText(
             vis_frame,
             f"Grid: {config_name}",
@@ -376,7 +350,6 @@ def detect_dishes_in_video_grid(
     if not ret:
         raise ValueError(f"Cannot read frame {frame_index} from video")
 
-    # Generate output path
     if save_detection_image:
         video_name = os.path.splitext(os.path.basename(video_path))[0]
         output_path = (
