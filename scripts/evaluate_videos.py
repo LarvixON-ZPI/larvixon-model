@@ -48,10 +48,8 @@ class VideoFrameDataset(Dataset):
         self.temp_dir = temp_dir
         self.samples = []
 
-        # Create temporary directory for frame extraction
         os.makedirs(self.temp_dir, exist_ok=True)
 
-        # Process all video files
         self._process_videos()
 
     def _extract_label_from_filename(self, video_filename):
@@ -66,13 +64,13 @@ class VideoFrameDataset(Dataset):
             and "etoh" not in filename_lower
             and "water" not in filename_lower
         ):
-            return 0  # Nothing
+            return 0 
         elif "water" in filename_lower or "_wl_" in filename_lower:
-            return 1  # Water (H2O)
+            return 1 
         elif "etoh" in filename_lower or "ethanol" in filename_lower:
-            return 2  # Ethanol
+            return 2
         elif "redbull" in filename_lower or "rb_" in filename_lower:
-            return 3  # Redbull
+            return 3
         else:
             logger.warning(
                 f"Could not determine label for {video_filename}, defaulting to 0 (Nothing)"
@@ -99,23 +97,18 @@ class VideoFrameDataset(Dataset):
             video_filename = os.path.basename(video_path)
             logger.info(f"Processing video: {video_filename}")
 
-            # Extract label from filename
             label = self._extract_label_from_filename(video_filename)
 
-            # Create output directory for this video's frames
             video_name = os.path.splitext(video_filename)[0]
             frame_output_dir = os.path.join(self.temp_dir, video_name)
 
             try:
-                # Extract frames from video
                 video_to_fixed_frames(
                     video_path=video_path,
                     output_dir=frame_output_dir,
                     num_frames=self.num_frames,
                     prefix="frame",
                 )
-
-                # Get all extracted frame paths
                 frame_files = sorted(
                     glob.glob(
                         os.path.join(frame_output_dir, "frame_*.jpg")
@@ -123,7 +116,6 @@ class VideoFrameDataset(Dataset):
                 )
 
                 if len(frame_files) >= self.num_frames:
-                    # Take exactly num_frames
                     frame_files = frame_files[: self.num_frames]
                     self.samples.append((frame_files, label))
                     logger.info(
@@ -150,19 +142,15 @@ class VideoFrameDataset(Dataset):
     def __getitem__(self, idx):
         frame_paths, label = self.samples[idx]
 
-        # Load and transform frames
         frames = []
         for frame_path in frame_paths:
             try:
-                # Load image
                 image = cv2.imread(frame_path)
                 if image is None:
                     raise ValueError(f"Could not load image: {frame_path}")
 
-                # Convert BGR to RGB
                 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-                # Apply transforms
                 if self.transform:
                     image = self.transform(image)
 
@@ -170,7 +158,6 @@ class VideoFrameDataset(Dataset):
 
             except Exception as e:
                 logger.error(f"Error loading frame {frame_path}: {str(e)}")
-                # Create a dummy black frame if loading fails
                 if self.transform:
                     dummy_frame = self.transform(
                         np.zeros((224, 224, 3), dtype=np.uint8)
@@ -179,7 +166,6 @@ class VideoFrameDataset(Dataset):
                     dummy_frame = torch.zeros(3, 224, 224)
                 frames.append(dummy_frame)
 
-        # Stack frames into tensor (num_frames, channels, height, width)
         frames_tensor = torch.stack(frames)
 
         return frames_tensor, label
@@ -216,7 +202,6 @@ class VideoEvaluator:
         self.device = config.DEVICE
         self.small_dataset = False
 
-        # Transform for evaluation
         self.transform = transforms.Compose(
             [
                 transforms.ToPILImage(),
@@ -228,7 +213,6 @@ class VideoEvaluator:
             ]
         )
 
-        # Create dataset from videos
         logger.info(f"Creating dataset from videos in {video_dir}")
         self.dataset = VideoFrameDataset(
             video_dir=video_dir,
@@ -236,7 +220,6 @@ class VideoEvaluator:
             transform=self.transform,
         )
 
-        # Results storage
         self.cv_results = defaultdict(list)
         self.fold_predictions = []
         self.fold_true_labels = []
@@ -246,7 +229,6 @@ class VideoEvaluator:
         )
         logger.info(f"Classes: {config.CLASS_NAMES}")
 
-        # Check if dataset is too small for proper cross-validation
         if len(self.dataset) < 10:
             self.small_dataset = True
             self.num_folds = min(
@@ -261,11 +243,9 @@ class VideoEvaluator:
         """
         Create train/test splits for video data
         """
-        # Get all sample indices and their labels
         all_indices = list(range(len(self.dataset)))
         all_labels = [self.dataset.samples[idx][1] for idx in all_indices]
 
-        # For small datasets or insufficient class diversity, skip stratification
         unique_labels = set(all_labels)
         if len(self.dataset) <= 4 or len(unique_labels) < 2:
             train_indices, test_indices = train_test_split(
@@ -282,7 +262,6 @@ class VideoEvaluator:
                     random_state=self.random_state,
                 )
             except ValueError:
-                # Fallback to non-stratified split
                 train_indices, test_indices = train_test_split(
                     all_indices,
                     test_size=self.test_size,
@@ -299,7 +278,6 @@ class VideoEvaluator:
             self.dataset.samples[idx][1] for idx in train_indices
         ]
 
-        # Try stratified K-fold, fallback to regular K-fold if not possible
         try:
             skf = StratifiedKFold(
                 n_splits=self.num_folds,
@@ -314,7 +292,6 @@ class VideoEvaluator:
                 val_fold = [train_indices[i] for i in val_fold_idx]
                 folds.append((train_fold, val_fold))
         except ValueError:
-            # Fallback to simple splitting
             from sklearn.model_selection import KFold
 
             kf = KFold(
@@ -427,12 +404,10 @@ class VideoEvaluator:
         )
         logger.info(f"Using model: {model_path}")
 
-        # Load pre-trained model
         base_model = CNNLSTM(num_classes=config.NUM_CLASSES).to(
             self.device
         )
 
-        # Try to load the model with fallback options
         try:
             base_model.load_state_dict(
                 torch.load(
@@ -445,7 +420,6 @@ class VideoEvaluator:
         except Exception as e:
             logger.warning(f"Failed to load {model_path}: {e}")
 
-            # Try the checkpoint file
             checkpoint_path = "models/cnn_lstm_checkpoint.pt"
             try:
                 checkpoint = torch.load(
@@ -470,7 +444,6 @@ class VideoEvaluator:
                     "Using randomly initialized model for demonstration purposes"
                 )
 
-        # For very small datasets, just evaluate the entire dataset
         if self.small_dataset or len(self.dataset) <= 4:
             logger.warning(
                 "Very small dataset - performing simple evaluation on all data"
@@ -480,33 +453,27 @@ class VideoEvaluator:
                 self.dataset, batch_size=config.BATCH_SIZE, shuffle=False
             )
 
-            # Evaluate on all data
             all_preds, all_labels, all_probs = self.evaluate_model(
                 base_model, data_loader, "All_Data"
             )
 
-            # Calculate metrics
             final_test_metrics = self.calculate_metrics(
                 all_labels, all_preds, all_probs
             )
 
-            # Mock some CV results for consistency
             for metric_name, value in final_test_metrics.items():
                 self.cv_results[metric_name] = [value]
 
             return final_test_metrics, all_preds, all_labels, all_probs
 
-        # Normal cross-validation for larger datasets
         train_indices, test_indices = self.create_video_aware_splits()
 
         logger.info(
             f"Train samples: {len(train_indices)}, Test samples: {len(test_indices)}"
         )
 
-        # Create CV folds from training data
         cv_folds = self.create_cv_folds(train_indices)
 
-        # Perform cross-validation
         for fold, (fold_train_indices, fold_val_indices) in enumerate(
             cv_folds
         ):
@@ -519,21 +486,17 @@ class VideoEvaluator:
                 sampler=val_sampler,
             )
 
-            # Evaluate on validation fold
             val_preds, val_labels, val_probs = self.evaluate_model(
                 base_model, val_loader, f"Fold_{fold+1}"
             )
 
-            # Calculate metrics for this fold
             fold_metrics = self.calculate_metrics(
                 val_labels, val_preds, val_probs
             )
 
-            # Store results
             for metric_name, value in fold_metrics.items():
                 self.cv_results[metric_name].append(value)
 
-            # Store predictions for ensemble analysis
             self.fold_predictions.append(val_preds)
             self.fold_true_labels.append(val_labels)
 
@@ -544,7 +507,6 @@ class VideoEvaluator:
                 f"Fold {fold + 1} F1-Macro: {fold_metrics['f1_macro']:.4f}"
             )
 
-        # Final evaluation on held-out test set
         test_sampler = SubsetRandomSampler(test_indices)
         test_loader = DataLoader(
             self.dataset,
@@ -556,7 +518,6 @@ class VideoEvaluator:
             base_model, test_loader, "Test"
         )
 
-        # Calculate final test metrics
         final_test_metrics = self.calculate_metrics(
             test_labels, test_preds, test_probs
         )
@@ -592,7 +553,6 @@ class VideoEvaluator:
                     f"{values.min():<10.4f} {values.max():<10.4f}"
                 )
 
-        # Per-class F1 scores
         print(f"\nPer-Class F1 Scores:")
         print("-" * 40)
         for class_name in config.CLASS_NAMES:
@@ -611,7 +571,6 @@ class VideoEvaluator:
         """
         os.makedirs(save_dir, exist_ok=True)
 
-        # Cross-validation results summary
         cv_summary = {}
         for metric, values in self.cv_results.items():
             cv_summary[metric] = {
@@ -622,7 +581,6 @@ class VideoEvaluator:
                 "values": [float(v) for v in values],
             }
 
-        # Complete results dictionary
         results = {
             "cross_validation": cv_summary,
             "final_test_metrics": {
@@ -643,11 +601,9 @@ class VideoEvaluator:
             "timestamp": datetime.now().isoformat(),
         }
 
-        # Save as JSON
         with open(f"{save_dir}/video_evaluation_results.json", "w") as f:
             json.dump(results, f, indent=2)
 
-        # Save as CSV for easy analysis
         cv_df = pd.DataFrame(self.cv_results)
         cv_df.to_csv(
             f"{save_dir}/video_cross_validation_metrics.csv", index=False
@@ -669,9 +625,8 @@ def main():
     print("Starting Video Cross-Validation Evaluation of CNN-LSTM Model")
     print("=" * 60)
 
-    # Initialize video evaluator
     video_dir = "internal_data"
-    num_frames = 16  # Adjust based on your model requirements
+    num_frames = 16  
 
     evaluator = VideoEvaluator(
         video_dir=video_dir,
@@ -682,12 +637,10 @@ def main():
     )
 
     try:
-        # Perform cross-validation
         final_test_metrics, test_preds, test_labels, test_probs = (
             evaluator.perform_cross_validation()
         )
 
-        # Print results
         evaluator.print_cv_results()
 
         print(f"\n{'='*80}")
@@ -698,7 +651,6 @@ def main():
         print(f"Final Test F1-Macro: {final_test_metrics['f1_macro']:.4f}")
         print(f"Final Test MCC: {final_test_metrics['mcc']:.4f}")
 
-        # Detailed classification report
         print(f"\nDetailed Classification Report (Test Set):")
         print(
             classification_report(
@@ -709,7 +661,6 @@ def main():
             )
         )
 
-        # Save results
         evaluator.save_results(final_test_metrics)
 
         print(f"\nVideo evaluation completed successfully!")
@@ -719,7 +670,6 @@ def main():
         logger.error(f"Video evaluation failed: {str(e)}")
         raise
     finally:
-        # Clean up temporary files
         evaluator.cleanup()
 
 

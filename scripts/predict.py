@@ -10,16 +10,12 @@ from torchvision import transforms
 from src.models.cnn_lstm_model import CNNLSTM
 from src.utils.logger import logger
 from src.utils.video_utils import video_to_fixed_frames
-from src.proc.find_edges_adaptive import find_shapes_first_frame
 from src.config import (
     NUM_FRAMES,
     NUM_CLASSES,
     MODEL_PATH,
     DEVICE,
     CLASS_NAMES,
-    LEARNING_RATE,
-    CHECKPOINT_PATH,
-    SAVE_PATH,
 )
 
 

@@ -32,7 +32,7 @@ def read_video_index():
 def list_s3_videos(bucket, prefix):
     s3 = boto3.client(
         "s3",
-        endpoint_url="https://s3min2.e-science.pl",
+        endpoint_url="https://s3min2.e-science.pl/" + config.S3_BUCKET,
         aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
         aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
         region_name="us-east-1",
@@ -48,7 +48,7 @@ def list_s3_videos(bucket, prefix):
             logger.debug(f"Found S3 object: {obj['Key']}")
             if (
                 obj["Key"].lower().endswith(".mov")
-                and obj["Key"].startswith("L")
+                and (obj["Key"].startswith("W") or obj["Key"].startswith("R"))
                 and obj["Key"].split(".")[0]
                 and "EtOH" not in obj["Key"]
                 # in video_index["Video name"].values //so index is wrong I think, lets discard it

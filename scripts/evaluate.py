@@ -88,10 +88,10 @@ class CrossValidationEvaluator:
 
         if len(self.dataset) < 10:
             self.small_dataset = True
-            self.num_folds = min(len(self.dataset), 4)  # Use smaller folds
+            self.num_folds = min(len(self.dataset), 4)  
             self.test_size = 1.0 / len(
                 self.dataset
-            )  # Use single sample for test
+            )  
             logger.warning(
                 f"Small dataset detected. Adjusting to {self.num_folds} folds."
             )
@@ -268,7 +268,6 @@ class CrossValidationEvaluator:
             self.device
         )
 
-        # Try to load the model, with fallback options
         try:
             base_model.load_state_dict(
                 torch.load(
@@ -281,7 +280,6 @@ class CrossValidationEvaluator:
         except Exception as e:
             logger.warning(f"Failed to load {model_path}: {e}")
 
-            # Try the checkpoint file
             checkpoint_path = "models/cnn_lstm_checkpoint.pt"
             try:
                 checkpoint = torch.load(
@@ -305,38 +303,30 @@ class CrossValidationEvaluator:
                 logger.warning(
                     "Using randomly initialized model for demonstration purposes"
                 )
-                # Continue with randomly initialized model for demo
 
-        # For very small datasets, just evaluate the entire dataset
         if self.small_dataset or len(self.dataset) <= 8:
             logger.warning(
                 "Very small dataset - performing simple evaluation on all data"
             )
 
-            # Use all data for evaluation
             all_indices = list(range(len(self.dataset)))
             data_loader = DataLoader(
                 self.dataset, batch_size=config.BATCH_SIZE, shuffle=False
             )
 
-            # Evaluate on all data
             all_preds, all_labels, all_probs = self.evaluate_model(
                 base_model, data_loader, "All_Data"
             )
 
-            # Calculate metrics
             final_test_metrics = self.calculate_metrics(
                 all_labels, all_preds, all_probs
             )
 
-            # Mock some CV results for consistency
             for metric_name, value in final_test_metrics.items():
                 self.cv_results[metric_name] = [value]  # Single "fold"
 
             return final_test_metrics, all_preds, all_labels, all_probs
 
-        # Normal cross-validation for larger datasets
-        # Create sequence-aware train/test split
         train_indices, test_indices, train_seqs, test_seqs = (
             self.create_sequence_aware_splits()
         )
@@ -348,16 +338,13 @@ class CrossValidationEvaluator:
             f"Train samples: {len(train_indices)}, Test samples: {len(test_indices)}"
         )
 
-        # Create CV folds from training data
         cv_folds = self.create_cv_folds(train_indices)
 
-        # Perform cross-validation
         for fold, (fold_train_indices, fold_val_indices) in enumerate(
             cv_folds
         ):
             logger.info(f"\n--- Fold {fold + 1}/{self.num_folds} ---")
 
-            # Create data loaders
             val_sampler = SubsetRandomSampler(fold_val_indices)
             val_loader = DataLoader(
                 self.dataset,
@@ -365,21 +352,17 @@ class CrossValidationEvaluator:
                 sampler=val_sampler,
             )
 
-            # Evaluate on validation fold
             val_preds, val_labels, val_probs = self.evaluate_model(
                 base_model, val_loader, f"Fold_{fold+1}"
             )
 
-            # Calculate metrics for this fold
             fold_metrics = self.calculate_metrics(
                 val_labels, val_preds, val_probs
             )
 
-            # Store results
             for metric_name, value in fold_metrics.items():
                 self.cv_results[metric_name].append(value)
 
-            # Store predictions for ensemble analysis
             self.fold_predictions.append(val_preds)
             self.fold_true_labels.append(val_labels)
 
@@ -390,7 +373,6 @@ class CrossValidationEvaluator:
                 f"Fold {fold + 1} F1-Macro: {fold_metrics['f1_macro']:.4f}"
             )
 
-        # Final evaluation on held-out test set
         test_sampler = SubsetRandomSampler(test_indices)
         test_loader = DataLoader(
             self.dataset,
@@ -402,7 +384,6 @@ class CrossValidationEvaluator:
             base_model, test_loader, "Test"
         )
 
-        # Calculate final test metrics
         final_test_metrics = self.calculate_metrics(
             test_labels, test_preds, test_probs
         )
@@ -417,7 +398,6 @@ class CrossValidationEvaluator:
         print("CROSS-VALIDATION RESULTS")
         print("=" * 80)
 
-        # Key metrics summary
         key_metrics = [
             "accuracy",
             "f1_macro",
@@ -439,7 +419,6 @@ class CrossValidationEvaluator:
                     f"{values.min():<10.4f} {values.max():<10.4f}"
                 )
 
-        # Per-class F1 scores
         print(f"\nPer-Class F1 Scores:")
         print("-" * 40)
         for class_name in config.CLASS_NAMES:
@@ -458,10 +437,8 @@ class CrossValidationEvaluator:
         """
         os.makedirs(save_dir, exist_ok=True)
 
-        # 1. Cross-validation metrics boxplot
         plt.figure(figsize=(15, 10))
 
-        # Key metrics for plotting
         key_metrics = [
             "accuracy",
             "f1_macro",
@@ -485,7 +462,6 @@ class CrossValidationEvaluator:
             plt.xticks(rotation=45)
             plt.ylabel("Score")
 
-        # 2. Per-class F1 scores
         plt.subplot(2, 3, 2)
         class_f1_means = []
         class_f1_stds = []
@@ -513,7 +489,6 @@ class CrossValidationEvaluator:
             plt.title("Per-Class F1 Scores (Mean ± Std)")
             plt.xticks(x_pos, class_names_plot, rotation=45)
 
-        # 3. Final test confusion matrix
         plt.subplot(2, 3, 3)
         cm = confusion_matrix(test_labels, test_preds)
         sns.heatmap(
@@ -528,7 +503,6 @@ class CrossValidationEvaluator:
         plt.xlabel("Predicted")
         plt.ylabel("True")
 
-        # 4. Accuracy across folds
         plt.subplot(2, 3, 4)
         fold_numbers = list(range(1, len(self.cv_results["accuracy"]) + 1))
         plt.plot(
@@ -550,7 +524,6 @@ class CrossValidationEvaluator:
         plt.legend()
         plt.grid(True, alpha=0.3)
 
-        # 5. Learning curve simulation (std dev across folds)
         plt.subplot(2, 3, 5)
         metrics_std = {
             metric: np.std(values)
@@ -563,7 +536,6 @@ class CrossValidationEvaluator:
             plt.ylabel("Standard Deviation")
             plt.xticks(rotation=45)
 
-        # 6. Class distribution
         plt.subplot(2, 3, 6)
         unique_labels, counts = np.unique(test_labels, return_counts=True)
         class_names_dist = [config.CLASS_NAMES[i] for i in unique_labels]
@@ -583,7 +555,6 @@ class CrossValidationEvaluator:
         )
         plt.show()
 
-        # Save individual confusion matrix with better formatting
         plt.figure(figsize=(10, 8))
         cm_normalized = cm.astype("float") / cm.sum(axis=1)[:, np.newaxis]
 
@@ -614,7 +585,6 @@ class CrossValidationEvaluator:
         """
         os.makedirs(save_dir, exist_ok=True)
 
-        # Cross-validation results summary
         cv_summary = {}
         for metric, values in self.cv_results.items():
             cv_summary[metric] = {
@@ -625,7 +595,6 @@ class CrossValidationEvaluator:
                 "values": [float(v) for v in values],
             }
 
-        # Complete results dictionary
         results = {
             "cross_validation": cv_summary,
             "final_test_metrics": {
@@ -644,11 +613,9 @@ class CrossValidationEvaluator:
             "timestamp": datetime.now().isoformat(),
         }
 
-        # Save as JSON
         with open(f"{save_dir}/evaluation_results.json", "w") as f:
             json.dump(results, f, indent=2)
 
-        # Save as CSV for easy analysis
         cv_df = pd.DataFrame(self.cv_results)
         cv_df.to_csv(
             f"{save_dir}/cross_validation_metrics.csv", index=False
@@ -664,7 +631,6 @@ def main():
     print("Starting Cross-Validation Evaluation of CNN-LSTM Model")
     print("=" * 60)
 
-    # Initialize evaluator
     evaluator = CrossValidationEvaluator(
         data_dir=config.DATA_DIR,
         num_folds=5,
@@ -672,13 +638,11 @@ def main():
         random_state=42,
     )
 
-    # Perform cross-validation
     try:
         final_test_metrics, test_preds, test_labels, test_probs = (
             evaluator.perform_cross_validation()
         )
 
-        # Print results
         evaluator.print_cv_results()
 
         print(f"\n{'='*80}")
@@ -689,7 +653,6 @@ def main():
         print(f"Final Test F1-Macro: {final_test_metrics['f1_macro']:.4f}")
         print(f"Final Test MCC: {final_test_metrics['mcc']:.4f}")
 
-        # Detailed classification report
         print(f"\nDetailed Classification Report (Test Set):")
         print(
             classification_report(
@@ -700,10 +663,8 @@ def main():
             )
         )
 
-        # Create visualizations
         evaluator.plot_results(test_preds, test_labels)
 
-        # Save results
         evaluator.save_results(final_test_metrics)
 
         print(f"\nEvaluation completed successfully!")
