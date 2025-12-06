@@ -1,8 +1,6 @@
 data/*
 mtdta/*
 *checkpoint*.pt
-*final*pt
-*.pt
 inference_frames/*
 .env
 # Ignore Python bytecode caches (all folders named __pycache__ anywhere in the tree)
