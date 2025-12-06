@@ -422,6 +422,7 @@ def main():
 
     if os.path.exists(config.CHECKPOINT_PATH):
         ckpt = torch.load(config.CHECKPOINT_PATH, map_location=device)
+        logger.info(f"Loading checkpoint from {config.CHECKPOINT_PATH}")
         if isinstance(ckpt, dict) and "model_state" in ckpt:
             model.load_state_dict(ckpt["model_state"])
             if "opt_state" in ckpt:
