@@ -20,4 +20,5 @@ __pycache__/
 internal_data/*
 *copy*
 *.jpg
+*.json
 
