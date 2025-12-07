@@ -21,4 +21,5 @@ internal_data/*
 *copy*
 *.jpg
 *.json
+*.csv
 
