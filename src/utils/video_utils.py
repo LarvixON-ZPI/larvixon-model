@@ -4,9 +4,7 @@ import numpy as np
 from src.utils.logger import logger
 
 
-def video_to_fixed_frames(
-    video_path, output_dir, num_frames, prefix="frame"
-):
+def video_to_fixed_frames(video_path, output_dir, num_frames, prefix="frame"):
     """
     Extract exactly `num_frames` frames evenly spaced across the video.
 
@@ -21,9 +19,7 @@ def video_to_fixed_frames(
     prefix : str, optional
         Prefix for saved frame filenames.
     """
-    logger.info(
-        f"Processing video: {video_path}, extracting {num_frames} frames."
-    )
+    logger.info(f"Processing video: {video_path}, extracting {num_frames} frames.")
     os.makedirs(output_dir, exist_ok=True)
     cap = cv2.VideoCapture(video_path)
 

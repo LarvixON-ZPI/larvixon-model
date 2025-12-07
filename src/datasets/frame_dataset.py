@@ -10,16 +10,12 @@ import src.config as config
 
 class FrameDataset(Dataset):
     def __init__(self, root_dir, num_frames=16, transform=None):
-        logger.debug(
-            f"Initializing FrameDataset with root_dir: {root_dir}, num_frames: {num_frames}"
-        )
+        logger.debug(f"Initializing FrameDataset with root_dir: {root_dir}, num_frames: {num_frames}")
         self.root_dir = root_dir
         self.transform = transform
         self.num_frames = num_frames
 
-        self.class_to_idx = {
-            cls: i for i, cls in enumerate(config.CLASS_NAMES)
-        }
+        self.class_to_idx = {cls: i for i, cls in enumerate(config.CLASS_NAMES)}
         self.samples = []
 
         for class_name in config.CLASS_NAMES:
@@ -27,13 +23,9 @@ class FrameDataset(Dataset):
             if not os.path.isdir(class_dir):
                 continue
 
-            sequence_dirs = sorted(
-                glob.glob(os.path.join(class_dir, "frames_*"))
-            )
+            sequence_dirs = sorted(glob.glob(os.path.join(class_dir, "frames_*")))
             for seq_dir in sequence_dirs:
-                frame_paths = sorted(
-                    glob.glob(os.path.join(seq_dir, "*.png"))
-                )
+                frame_paths = sorted(glob.glob(os.path.join(seq_dir, "*.png")))
                 if len(frame_paths) >= num_frames - 1:
                     self.samples.append(
                         (
@@ -41,13 +33,9 @@ class FrameDataset(Dataset):
                             self.class_to_idx[class_name],
                         )
                     )
-                    logger.debug(
-                        f"Added sequence: {seq_dir} with {len(frame_paths[:num_frames])} frames"
-                    )
+                    logger.debug(f"Added sequence: {seq_dir} with {len(frame_paths[:num_frames])} frames")
                 else:
-                    logger.warning(
-                        f"Skipped short sequence: {seq_dir} ({len(frame_paths)} frames)"
-                    )
+                    logger.warning(f"Skipped short sequence: {seq_dir} ({len(frame_paths)} frames)")
 
     def __len__(self):
         return len(self.samples)

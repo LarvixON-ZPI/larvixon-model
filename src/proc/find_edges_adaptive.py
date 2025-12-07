@@ -1,6 +1,7 @@
 import cv2
 import os
 import sys
+
 sys.path.append(".")
 from src.utils.logger import logger
 
@@ -26,12 +27,7 @@ def remove_duplicates(rois, tolerance=20, num_of_petris=8):
         is_duplicate = False
         for f_roi in filtered_rois:
             fx, fy, fw, fh = f_roi
-            if (
-                abs(x - fx) < tolerance
-                and abs(y - fy) < tolerance
-                and abs(w - fw) < tolerance
-                and abs(h - fh) < tolerance
-            ):
+            if abs(x - fx) < tolerance and abs(y - fy) < tolerance and abs(w - fw) < tolerance and abs(h - fh) < tolerance:
                 is_duplicate = True
                 break
         if not is_duplicate:
@@ -42,9 +38,7 @@ def remove_duplicates(rois, tolerance=20, num_of_petris=8):
     return filtered_rois
 
 
-def find_shapes_first_frame(
-    video_path, output_image_name="first_frame_shapes.jpg"
-):
+def find_shapes_first_frame(video_path, output_image_name="first_frame_shapes.jpg"):
     """
     Analyzes the first frame of a video to find low-contrast shapes
     using adaptive thresholding on the red channel.
@@ -69,9 +63,7 @@ def find_shapes_first_frame(
     logger.info("Reading the first frame...")
     ret, frame = cap.read()
     if not ret:
-        logger.error(
-            "Error: Could not read the first frame from the video."
-        )
+        logger.error("Error: Could not read the first frame from the video.")
         cap.release()
         return None
 
@@ -80,9 +72,7 @@ def find_shapes_first_frame(
     block_size = 15
     sensitivity_const = 3
 
-    logger.info(
-        f"Applying adaptive threshold with BlockSize={block_size}, C={sensitivity_const}"
-    )
+    logger.info(f"Applying adaptive threshold with BlockSize={block_size}, C={sensitivity_const}")
     thresh_img = cv2.adaptiveThreshold(
         r_channel,
         255,
@@ -92,9 +82,7 @@ def find_shapes_first_frame(
         sensitivity_const,
     )
 
-    contours, _ = cv2.findContours(
-        thresh_img, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE
-    )
+    contours, _ = cv2.findContours(thresh_img, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     frame_rois = []
 
     logger.info(f"Found {len(contours)} raw contours. Filtering...")
@@ -110,13 +98,9 @@ def find_shapes_first_frame(
 
     frame_rois = remove_duplicates(frame_rois, tolerance=20, num_of_petris=8)
 
-    logger.info(
-        f"\nProcessing complete. Found {len(frame_rois)} filtered ROIs."
-    )
+    logger.info(f"\nProcessing complete. Found {len(frame_rois)} filtered ROIs.")
     logger.info(f"Visualization saved to: '{output_image_name}'")
-    logger.info(
-        f"Debug view saved to: '{debug_img_name}'"
-    )
+    logger.info(f"Debug view saved to: '{debug_img_name}'")
 
     cap.release()
     cv2.destroyAllWindows()
@@ -131,9 +115,7 @@ if __name__ == "__main__":
     roi_data = find_shapes_first_frame(VIDEO_FILE_PATH)
 
     if roi_data is not None:
-        logger.info(
-            f"\n--- ROI Data for First Frame (Total: {len(roi_data)}) ---"
-        )
+        logger.info(f"\n--- ROI Data for First Frame (Total: {len(roi_data)}) ---")
         logger.info(roi_data)
     else:
         logger.error("Could not process the video.")

@@ -60,17 +60,13 @@ class LarvaeDetector:
         Returns:
         - List of frame indices where larvae first appear in each dish
         """
-        logger.info(
-            f"Detecting larvae appearance in {len(dish_rois)} dishes"
-        )
+        logger.info(f"Detecting larvae appearance in {len(dish_rois)} dishes")
 
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
             raise ValueError(f"Cannot open video: {video_path}")
 
-        bg_subtractors = [
-            self.create_background_subtractor() for _ in dish_rois
-        ]
+        bg_subtractors = [self.create_background_subtractor() for _ in dish_rois]
 
         motion_streaks = [0] * len(dish_rois)
         first_appearance = [-1] * len(dish_rois)
@@ -90,33 +86,20 @@ class LarvaeDetector:
 
                 fg_mask = bg_subtractors[dish_idx].apply(roi_frame)
 
-                kernel = cv2.getStructuringElement(
-                    cv2.MORPH_ELLIPSE, (3, 3)
-                )
+                kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
                 fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_OPEN, kernel)
-                fg_mask = cv2.morphologyEx(
-                    fg_mask, cv2.MORPH_CLOSE, kernel
-                )
+                fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_CLOSE, kernel)
 
-                contours, _ = cv2.findContours(
-                    fg_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-                )
+                contours, _ = cv2.findContours(fg_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-                total_motion_area = sum(
-                    cv2.contourArea(c) for c in contours
-                )
+                total_motion_area = sum(cv2.contourArea(c) for c in contours)
 
                 if min_motion_area <= total_motion_area <= max_motion_area:
                     motion_streaks[dish_idx] += 1
 
                     if motion_streaks[dish_idx] >= sustain_frames:
-                        first_appearance[dish_idx] = max(
-                            0, frame_idx - sustain_frames
-                        )
-                        logger.info(
-                            f"Larvae detected in dish {dish_idx} "
-                            f"at frame {first_appearance[dish_idx]}"
-                        )
+                        first_appearance[dish_idx] = max(0, frame_idx - sustain_frames)
+                        logger.info(f"Larvae detected in dish {dish_idx} " f"at frame {first_appearance[dish_idx]}")
                 else:
                     motion_streaks[dish_idx] = 0
 
@@ -130,10 +113,7 @@ class LarvaeDetector:
         for i in range(len(first_appearance)):
             if first_appearance[i] == -1:
                 first_appearance[i] = 0
-                logger.warning(
-                    f"No larvae detected in dish {i}, "
-                    f"starting from frame 0"
-                )
+                logger.warning(f"No larvae detected in dish {i}, " f"starting from frame 0")
 
         return first_appearance
 
@@ -255,9 +235,7 @@ class LarvaeDetector:
         cap.release()
 
         frame_qualities.sort(key=lambda x: x[1], reverse=True)
-        selected_frames = [
-            idx for idx, _ in frame_qualities[:target_frames]
-        ]
+        selected_frames = [idx for idx, _ in frame_qualities[:target_frames]]
         selected_frames.sort()
 
         return selected_frames
@@ -280,6 +258,4 @@ def detect_larvae_in_dishes(
     - List of frame indices where larvae first appear
     """
     detector = LarvaeDetector()
-    return detector.detect_larvae_appearance(
-        video_path, dish_rois, max_frames_check
-    )
+    return detector.detect_larvae_appearance(video_path, dish_rois, max_frames_check)

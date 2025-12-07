@@ -1,5 +1,6 @@
 import os
 import sys
+
 sys.path.append(".")
 import tempfile
 import torch
@@ -45,28 +46,22 @@ async def predict(file: UploadFile = File(...)):
         with open(video_path, "wb") as f:
             contents = await file.read()
             f.write(contents)
-        
+
         logger.info("Checking for edges in the video...")
         roi_data = find_shapes_first_frame(video_path)
-        
+
         if roi_data is None or len(roi_data) == 0:
             logger.warning("No edges found in the video")
             return {"metadata": "Incorrect video. Make sure the video contains larvae in petri dish"}
-        
+
         logger.info(f"Found {len(roi_data)} ROI(s) in the video")
-        
+
         test_dir = "data/"
         frames_dir = os.path.join(test_dir, "frames")
         video_to_fixed_frames(video_path, frames_dir, NUM_FRAMES)
 
         frames = []
-        frame_files = sorted(
-            [
-                f
-                for f in os.listdir(frames_dir)
-                if f.endswith((".jpg", ".png"))
-            ]
-        )
+        frame_files = sorted([f for f in os.listdir(frames_dir) if f.endswith((".jpg", ".png"))])
 
         for fname in frame_files[:NUM_FRAMES]:
             img_path = os.path.join(frames_dir, fname)
@@ -75,11 +70,7 @@ async def predict(file: UploadFile = File(...)):
             frames.append(img)
 
         while len(frames) < NUM_FRAMES:
-            frames.append(
-                torch.zeros_like(frames[0])
-                if frames
-                else torch.zeros(3, 112, 112)
-            )
+            frames.append(torch.zeros_like(frames[0]) if frames else torch.zeros(3, 112, 112))
 
         input_tensor = torch.stack(frames).unsqueeze(0).to(DEVICE)
         logger.info(f"Processed {len(frames)} frames for prediction.")
@@ -93,9 +84,7 @@ async def predict(file: UploadFile = File(...)):
             probs = probs.squeeze().cpu().numpy()
             logger.info(f"Prediction probabilities: {probs}")
 
-        results = {
-            cls: float(p * 100) for cls, p in zip(CLASS_NAMES, probs)
-        }
+        results = {cls: float(p * 100) for cls, p in zip(CLASS_NAMES, probs)}
 
         return {"predictions": results}
 
@@ -142,6 +131,4 @@ async def train(
     if device.type == "cuda":
         torch.cuda.empty_cache()
 
-    return {
-        "status": f"Training initiated for class '{class_name}' for {epochs} epochs."
-    }
+    return {"status": f"Training initiated for class '{class_name}' for {epochs} epochs."}

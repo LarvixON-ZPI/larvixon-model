@@ -4,7 +4,7 @@ from torchvision.models import resnet18, ResNet18_Weights
 
 
 class CNNLSTM(nn.Module):
-    def __init__(self, num_classes, hidden_dim=256, lstm_layers=1, temporal_pooling='last'):
+    def __init__(self, num_classes, hidden_dim=256, lstm_layers=1, temporal_pooling="last"):
         super(CNNLSTM, self).__init__()
 
         base_cnn = resnet18(weights=ResNet18_Weights.DEFAULT)
@@ -19,12 +19,8 @@ class CNNLSTM(nn.Module):
             batch_first=True,
         )
 
-        if temporal_pooling == 'attention':
-            self.attention = nn.Sequential(
-                nn.Linear(hidden_dim, hidden_dim // 2),
-                nn.Tanh(),
-                nn.Linear(hidden_dim // 2, 1)
-            )
+        if temporal_pooling == "attention":
+            self.attention = nn.Sequential(nn.Linear(hidden_dim, hidden_dim // 2), nn.Tanh(), nn.Linear(hidden_dim // 2, 1))
 
         self.classifier = nn.Linear(hidden_dim, num_classes)
 
@@ -35,16 +31,16 @@ class CNNLSTM(nn.Module):
 
         features = features.view(B, T, -1)
         lstm_out, _ = self.lstm(features)
-        
-        if self.temporal_pooling == 'mean':
+
+        if self.temporal_pooling == "mean":
             pooled_output = torch.mean(lstm_out, dim=1)
-        elif self.temporal_pooling == 'max':
+        elif self.temporal_pooling == "max":
             pooled_output, _ = torch.max(lstm_out, dim=1)
-        elif self.temporal_pooling == 'attention':
+        elif self.temporal_pooling == "attention":
             attention_weights = self.attention(lstm_out)
             attention_weights = torch.softmax(attention_weights, dim=1)
             pooled_output = torch.sum(lstm_out * attention_weights, dim=1)
-        elif self.temporal_pooling == 'adaptive':
+        elif self.temporal_pooling == "adaptive":
             avg_pool = torch.mean(lstm_out, dim=1)
             max_pool, _ = torch.max(lstm_out, dim=1)
             pooled_output = (avg_pool + max_pool) / 2

@@ -33,9 +33,7 @@ class CrossValidationEvaluator:
     Comprehensive Cross-Validation Evaluator for CNN-LSTM Model
     """
 
-    def __init__(
-        self, data_dir, num_folds=5, test_size=0.2, random_state=42
-    ):
+    def __init__(self, data_dir, num_folds=5, test_size=0.2, random_state=42):
         self.data_dir = data_dir
         self.num_folds = num_folds
         self.test_size = test_size
@@ -47,15 +45,11 @@ class CrossValidationEvaluator:
             [
                 transforms.Resize((112, 112)),
                 transforms.ToTensor(),
-                transforms.Normalize(
-                    [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
-                ),
+                transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
             ]
         )
 
-        temp_dataset = FrameDataset(
-            root_dir=self.data_dir, num_frames=16, transform=self.transform
-        )
+        temp_dataset = FrameDataset(root_dir=self.data_dir, num_frames=16, transform=self.transform)
 
         if len(temp_dataset) == 0:
             for frames_count in [10, 8, 5]:
@@ -65,36 +59,24 @@ class CrossValidationEvaluator:
                     transform=self.transform,
                 )
                 if len(temp_dataset) > 0:
-                    logger.info(
-                        f"Using {frames_count} frames per sequence"
-                    )
+                    logger.info(f"Using {frames_count} frames per sequence")
                     break
 
         self.dataset = temp_dataset
-        self.actual_num_frames = (
-            self.dataset.num_frames
-            if hasattr(self.dataset, "num_frames")
-            else 16
-        )
+        self.actual_num_frames = self.dataset.num_frames if hasattr(self.dataset, "num_frames") else 16
 
         self.cv_results = defaultdict(list)
         self.fold_predictions = []
         self.fold_true_labels = []
 
-        logger.info(
-            f"Initialized CV Evaluator with {len(self.dataset)} samples"
-        )
+        logger.info(f"Initialized CV Evaluator with {len(self.dataset)} samples")
         logger.info(f"Classes: {config.CLASS_NAMES}")
 
         if len(self.dataset) < 10:
             self.small_dataset = True
-            self.num_folds = min(len(self.dataset), 4)  
-            self.test_size = 1.0 / len(
-                self.dataset
-            )  
-            logger.warning(
-                f"Small dataset detected. Adjusting to {self.num_folds} folds."
-            )
+            self.num_folds = min(len(self.dataset), 4)
+            self.test_size = 1.0 / len(self.dataset)
+            logger.warning(f"Small dataset detected. Adjusting to {self.num_folds} folds.")
 
     def create_sequence_aware_splits(self):
         """
@@ -113,23 +95,19 @@ class CrossValidationEvaluator:
         labels = [item[1] for item in sequence_labels]
 
         if len(seq_dirs) <= 4 or len(set(labels)) < 2:
-            train_seqs, test_seqs, train_labels, test_labels = (
-                train_test_split(
-                    seq_dirs,
-                    labels,
-                    test_size=self.test_size,
-                    random_state=self.random_state,
-                )
+            train_seqs, test_seqs, train_labels, test_labels = train_test_split(
+                seq_dirs,
+                labels,
+                test_size=self.test_size,
+                random_state=self.random_state,
             )
         else:
-            train_seqs, test_seqs, train_labels, test_labels = (
-                train_test_split(
-                    seq_dirs,
-                    labels,
-                    test_size=self.test_size,
-                    stratify=labels,
-                    random_state=self.random_state,
-                )
+            train_seqs, test_seqs, train_labels, test_labels = train_test_split(
+                seq_dirs,
+                labels,
+                test_size=self.test_size,
+                stratify=labels,
+                random_state=self.random_state,
             )
 
         train_indices = []
@@ -147,9 +125,7 @@ class CrossValidationEvaluator:
         """
         Create stratified K-fold splits for cross validation
         """
-        train_labels = [
-            self.dataset.samples[idx][1] for idx in train_indices
-        ]
+        train_labels = [self.dataset.samples[idx][1] for idx in train_indices]
 
         skf = StratifiedKFold(
             n_splits=self.num_folds,
@@ -158,9 +134,7 @@ class CrossValidationEvaluator:
         )
 
         folds = []
-        for train_fold_idx, val_fold_idx in skf.split(
-            train_indices, train_labels
-        ):
+        for train_fold_idx, val_fold_idx in skf.split(train_indices, train_labels):
             train_fold = [train_indices[i] for i in train_fold_idx]
             val_fold = [train_indices[i] for i in val_fold_idx]
             folds.append((train_fold, val_fold))
@@ -202,19 +176,13 @@ class CrossValidationEvaluator:
 
         metrics["accuracy"] = accuracy_score(y_true, y_pred)
 
-        precision, recall, f1, support = precision_recall_fscore_support(
-            y_true, y_pred, average=None, zero_division=0
-        )
+        precision, recall, f1, support = precision_recall_fscore_support(y_true, y_pred, average=None, zero_division=0)
 
-        precision_macro, recall_macro, f1_macro, _ = (
-            precision_recall_fscore_support(
-                y_true, y_pred, average="macro", zero_division=0
-            )
+        precision_macro, recall_macro, f1_macro, _ = precision_recall_fscore_support(
+            y_true, y_pred, average="macro", zero_division=0
         )
-        precision_micro, recall_micro, f1_micro, _ = (
-            precision_recall_fscore_support(
-                y_true, y_pred, average="micro", zero_division=0
-            )
+        precision_micro, recall_micro, f1_micro, _ = precision_recall_fscore_support(
+            y_true, y_pred, average="micro", zero_division=0
         )
 
         metrics["precision_macro"] = precision_macro
@@ -240,12 +208,8 @@ class CrossValidationEvaluator:
 
         if y_probs is not None and config.NUM_CLASSES > 2:
             try:
-                metrics["auc_macro"] = roc_auc_score(
-                    y_true, y_probs, multi_class="ovr", average="macro"
-                )
-                metrics["auc_weighted"] = roc_auc_score(
-                    y_true, y_probs, multi_class="ovr", average="weighted"
-                )
+                metrics["auc_macro"] = roc_auc_score(y_true, y_probs, multi_class="ovr", average="macro")
+                metrics["auc_weighted"] = roc_auc_score(y_true, y_probs, multi_class="ovr", average="weighted")
             except ValueError:
                 metrics["auc_macro"] = 0.0
                 metrics["auc_weighted"] = 0.0
@@ -259,14 +223,10 @@ class CrossValidationEvaluator:
         if model_path is None:
             model_path = config.MODEL_PATH
 
-        logger.info(
-            f"Starting Cross-Validation with {self.num_folds} folds"
-        )
+        logger.info(f"Starting Cross-Validation with {self.num_folds} folds")
         logger.info(f"Using model: {model_path}")
 
-        base_model = CNNLSTM(num_classes=config.NUM_CLASSES).to(
-            self.device
-        )
+        base_model = CNNLSTM(num_classes=config.NUM_CLASSES).to(self.device)
 
         try:
             base_model.load_state_dict(
@@ -288,61 +248,37 @@ class CrossValidationEvaluator:
                     weights_only=False,
                 )
                 if "model_state_dict" in checkpoint:
-                    base_model.load_state_dict(
-                        checkpoint["model_state_dict"]
-                    )
+                    base_model.load_state_dict(checkpoint["model_state_dict"])
                 else:
                     base_model.load_state_dict(checkpoint)
-                logger.info(
-                    f"Successfully loaded model from checkpoint: {checkpoint_path}"
-                )
+                logger.info(f"Successfully loaded model from checkpoint: {checkpoint_path}")
             except Exception as e2:
-                logger.error(
-                    f"Failed to load checkpoint {checkpoint_path}: {e2}"
-                )
-                logger.warning(
-                    "Using randomly initialized model for demonstration purposes"
-                )
+                logger.error(f"Failed to load checkpoint {checkpoint_path}: {e2}")
+                logger.warning("Using randomly initialized model for demonstration purposes")
 
         if self.small_dataset or len(self.dataset) <= 8:
-            logger.warning(
-                "Very small dataset - performing simple evaluation on all data"
-            )
+            logger.warning("Very small dataset - performing simple evaluation on all data")
 
             all_indices = list(range(len(self.dataset)))
-            data_loader = DataLoader(
-                self.dataset, batch_size=config.BATCH_SIZE, shuffle=False
-            )
+            data_loader = DataLoader(self.dataset, batch_size=config.BATCH_SIZE, shuffle=False)
 
-            all_preds, all_labels, all_probs = self.evaluate_model(
-                base_model, data_loader, "All_Data"
-            )
+            all_preds, all_labels, all_probs = self.evaluate_model(base_model, data_loader, "All_Data")
 
-            final_test_metrics = self.calculate_metrics(
-                all_labels, all_preds, all_probs
-            )
+            final_test_metrics = self.calculate_metrics(all_labels, all_preds, all_probs)
 
             for metric_name, value in final_test_metrics.items():
                 self.cv_results[metric_name] = [value]  # Single "fold"
 
             return final_test_metrics, all_preds, all_labels, all_probs
 
-        train_indices, test_indices, train_seqs, test_seqs = (
-            self.create_sequence_aware_splits()
-        )
+        train_indices, test_indices, train_seqs, test_seqs = self.create_sequence_aware_splits()
 
-        logger.info(
-            f"Train sequences: {len(train_seqs)}, Test sequences: {len(test_seqs)}"
-        )
-        logger.info(
-            f"Train samples: {len(train_indices)}, Test samples: {len(test_indices)}"
-        )
+        logger.info(f"Train sequences: {len(train_seqs)}, Test sequences: {len(test_seqs)}")
+        logger.info(f"Train samples: {len(train_indices)}, Test samples: {len(test_indices)}")
 
         cv_folds = self.create_cv_folds(train_indices)
 
-        for fold, (fold_train_indices, fold_val_indices) in enumerate(
-            cv_folds
-        ):
+        for fold, (fold_train_indices, fold_val_indices) in enumerate(cv_folds):
             logger.info(f"\n--- Fold {fold + 1}/{self.num_folds} ---")
 
             val_sampler = SubsetRandomSampler(fold_val_indices)
@@ -352,13 +288,9 @@ class CrossValidationEvaluator:
                 sampler=val_sampler,
             )
 
-            val_preds, val_labels, val_probs = self.evaluate_model(
-                base_model, val_loader, f"Fold_{fold+1}"
-            )
+            val_preds, val_labels, val_probs = self.evaluate_model(base_model, val_loader, f"Fold_{fold+1}")
 
-            fold_metrics = self.calculate_metrics(
-                val_labels, val_preds, val_probs
-            )
+            fold_metrics = self.calculate_metrics(val_labels, val_preds, val_probs)
 
             for metric_name, value in fold_metrics.items():
                 self.cv_results[metric_name].append(value)
@@ -366,12 +298,8 @@ class CrossValidationEvaluator:
             self.fold_predictions.append(val_preds)
             self.fold_true_labels.append(val_labels)
 
-            logger.info(
-                f"Fold {fold + 1} Accuracy: {fold_metrics['accuracy']:.4f}"
-            )
-            logger.info(
-                f"Fold {fold + 1} F1-Macro: {fold_metrics['f1_macro']:.4f}"
-            )
+            logger.info(f"Fold {fold + 1} Accuracy: {fold_metrics['accuracy']:.4f}")
+            logger.info(f"Fold {fold + 1} F1-Macro: {fold_metrics['f1_macro']:.4f}")
 
         test_sampler = SubsetRandomSampler(test_indices)
         test_loader = DataLoader(
@@ -380,13 +308,9 @@ class CrossValidationEvaluator:
             sampler=test_sampler,
         )
 
-        test_preds, test_labels, test_probs = self.evaluate_model(
-            base_model, test_loader, "Test"
-        )
+        test_preds, test_labels, test_probs = self.evaluate_model(base_model, test_loader, "Test")
 
-        final_test_metrics = self.calculate_metrics(
-            test_labels, test_preds, test_probs
-        )
+        final_test_metrics = self.calculate_metrics(test_labels, test_preds, test_probs)
 
         return final_test_metrics, test_preds, test_labels, test_probs
 
@@ -406,17 +330,14 @@ class CrossValidationEvaluator:
             "mcc",
         ]
 
-        print(
-            f"\n{'Metric':<20} {'Mean':<10} {'Std':<10} {'Min':<10} {'Max':<10}"
-        )
+        print(f"\n{'Metric':<20} {'Mean':<10} {'Std':<10} {'Min':<10} {'Max':<10}")
         print("-" * 60)
 
         for metric in key_metrics:
             if metric in self.cv_results:
                 values = np.array(self.cv_results[metric])
                 print(
-                    f"{metric:<20} {values.mean():<10.4f} {values.std():<10.4f} "
-                    f"{values.min():<10.4f} {values.max():<10.4f}"
+                    f"{metric:<20} {values.mean():<10.4f} {values.std():<10.4f} " f"{values.min():<10.4f} {values.max():<10.4f}"
                 )
 
         print(f"\nPer-Class F1 Scores:")
@@ -425,13 +346,9 @@ class CrossValidationEvaluator:
             metric_key = f"f1_{class_name}"
             if metric_key in self.cv_results:
                 values = np.array(self.cv_results[metric_key])
-                print(
-                    f"{class_name:<15} {values.mean():<10.4f} ± {values.std():<8.4f}"
-                )
+                print(f"{class_name:<15} {values.mean():<10.4f} ± {values.std():<8.4f}")
 
-    def plot_results(
-        self, test_preds, test_labels, save_dir="evaluation_results"
-    ):
+    def plot_results(self, test_preds, test_labels, save_dir="evaluation_results"):
         """
         Create visualization plots
         """
@@ -447,14 +364,8 @@ class CrossValidationEvaluator:
         ]
 
         plt.subplot(2, 3, 1)
-        metrics_data = [
-            self.cv_results[metric]
-            for metric in key_metrics
-            if metric in self.cv_results
-        ]
-        metrics_labels = [
-            metric for metric in key_metrics if metric in self.cv_results
-        ]
+        metrics_data = [self.cv_results[metric] for metric in key_metrics if metric in self.cv_results]
+        metrics_labels = [metric for metric in key_metrics if metric in self.cv_results]
 
         if metrics_data:
             plt.boxplot(metrics_data, labels=metrics_labels)
@@ -525,11 +436,7 @@ class CrossValidationEvaluator:
         plt.grid(True, alpha=0.3)
 
         plt.subplot(2, 3, 5)
-        metrics_std = {
-            metric: np.std(values)
-            for metric, values in self.cv_results.items()
-            if metric in key_metrics
-        }
+        metrics_std = {metric: np.std(values) for metric, values in self.cv_results.items() if metric in key_metrics}
         if metrics_std:
             plt.bar(metrics_std.keys(), metrics_std.values(), alpha=0.7)
             plt.title("Metric Stability (Lower is Better)")
@@ -577,9 +484,7 @@ class CrossValidationEvaluator:
         )
         plt.show()
 
-    def save_results(
-        self, final_test_metrics, save_dir="evaluation_results"
-    ):
+    def save_results(self, final_test_metrics, save_dir="evaluation_results"):
         """
         Save detailed results to files
         """
@@ -597,9 +502,7 @@ class CrossValidationEvaluator:
 
         results = {
             "cross_validation": cv_summary,
-            "final_test_metrics": {
-                k: float(v) for k, v in final_test_metrics.items()
-            },
+            "final_test_metrics": {k: float(v) for k, v in final_test_metrics.items()},
             "configuration": {
                 "num_folds": self.num_folds,
                 "test_size": self.test_size,
@@ -617,9 +520,7 @@ class CrossValidationEvaluator:
             json.dump(results, f, indent=2)
 
         cv_df = pd.DataFrame(self.cv_results)
-        cv_df.to_csv(
-            f"{save_dir}/cross_validation_metrics.csv", index=False
-        )
+        cv_df.to_csv(f"{save_dir}/cross_validation_metrics.csv", index=False)
 
         logger.info(f"Results saved to {save_dir}/")
 
@@ -639,9 +540,7 @@ def main():
     )
 
     try:
-        final_test_metrics, test_preds, test_labels, test_probs = (
-            evaluator.perform_cross_validation()
-        )
+        final_test_metrics, test_preds, test_labels, test_probs = evaluator.perform_cross_validation()
 
         evaluator.print_cv_results()
 

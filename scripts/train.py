@@ -1,5 +1,6 @@
 import os
 import sys
+
 sys.path.append(".")
 import cv2
 import boto3
@@ -81,9 +82,7 @@ def sample_frame_indices(total, num_frames, start=0):
     return [start + i * step for i in range(num_frames)]
 
 
-def detect_first_motion_frame(
-    cap, roi, max_check=100, diff_thresh=7, max_diff=100
-):
+def detect_first_motion_frame(cap, roi, max_check=100, diff_thresh=7, max_diff=100):
     logger.info(
         f"Detecting first motion frame in ROI: {roi} with max_check={max_check}, diff_thresh={diff_thresh}, max_diff={max_diff}"
     )
@@ -93,38 +92,22 @@ def detect_first_motion_frame(
     for i in range(max_check):
         ok, frame = cap.read()
         if not ok:
-            logger.warning(
-                f"Failed to read frame {i} during motion detection"
-            )
+            logger.warning(f"Failed to read frame {i} during motion detection")
             break
-        gray = cv2.cvtColor(
-            frame[y : y + h, x : x + w], cv2.COLOR_BGR2GRAY
-        )
-        logger.debug(
-            f"Motion detection frame {i} with mean pixel value {gray.mean()}"
-        )
+        gray = cv2.cvtColor(frame[y : y + h, x : x + w], cv2.COLOR_BGR2GRAY)
+        logger.debug(f"Motion detection frame {i} with mean pixel value {gray.mean()}")
         if prev_gray is not None:
             diff = cv2.absdiff(gray, prev_gray)
             mean_diff = diff.mean()
-            logger.debug(
-                f"Frame {i} mean diff: {mean_diff}, diff_thresh: {diff_thresh}"
-            )
+            logger.debug(f"Frame {i} mean diff: {mean_diff}, diff_thresh: {diff_thresh}")
             if max_val_found < mean_diff:
                 max_val_found = mean_diff
 
-            if (
-                mean_diff > diff_thresh
-                and mean_diff < max_diff
-                and gray.mean() < 10
-            ):
-                logger.info(
-                    f"Detected motion at frame {i} with mean diff {mean_diff}"
-                )
+            if mean_diff > diff_thresh and mean_diff < max_diff and gray.mean() < 10:
+                logger.info(f"Detected motion at frame {i} with mean diff {mean_diff}")
                 return i
         prev_gray = gray
-    logger.info(
-        f"No significant motion detected within {max_check} frames. Max diff found: {max_val_found}"
-    )
+    logger.info(f"No significant motion detected within {max_check} frames. Max diff found: {max_val_found}")
     return 0
 
 
@@ -173,65 +156,50 @@ def detect_first_larva_frame(
         if prev_gray is not None:
             frame_delta = cv2.absdiff(prev_gray, gray)
 
-            thresh = cv2.threshold(
-                frame_delta, diff_thresh, 255, cv2.THRESH_BINARY
-            )[1]
+            thresh = cv2.threshold(frame_delta, diff_thresh, 255, cv2.THRESH_BINARY)[1]
 
             pixel_change_count = cv2.countNonZero(thresh)
 
             if pixel_change_count > max_larva_pixels:
                 motion_streak = 0
                 hand_detected_recently = True
-                logger.info(
-                    f"Frame {i}: Large motion detected ({pixel_change_count} pixels). Assuming hand, resetting."
-                )
+                logger.info(f"Frame {i}: Large motion detected ({pixel_change_count} pixels). Assuming hand, resetting.")
 
-            elif (
-                hand_detected_recently
-                and pixel_change_count < min_larva_pixels
-            ):
+            elif hand_detected_recently and pixel_change_count < min_larva_pixels:
                 hand_detected_recently = False
                 logger.info(f"Frame {i}: Scene stabilizing after hand.")
 
-            elif (
-                not hand_detected_recently
-                and pixel_change_count >= min_larva_pixels
-            ):
+            elif not hand_detected_recently and pixel_change_count >= min_larva_pixels:
                 motion_streak += 1
                 logger.info(
                     f"Frame {i}: Potential larva motion detected ({pixel_change_count} pixels). Streak: {motion_streak}/{sustain_frames}"
                 )
                 if motion_streak >= sustain_frames:
                     start_frame = max(0, i - sustain_frames + 1)
-                    logger.info(
-                        f"Sustained larva motion detected! Start frame is ~{start_frame}"
-                    )
+                    logger.info(f"Sustained larva motion detected! Start frame is ~{start_frame}")
                     return start_frame
             else:
                 motion_streak = 0
 
         prev_gray = gray
 
-    logger.warning(
-        "No sustained larva motion found within the first max_check frames."
-    )
+    logger.warning("No sustained larva motion found within the first max_check frames.")
     return 0
 
 
-def extract_8_dishes_to_frame_folders(
-    video_path, out_root, num_frames, dish_to_class, even_slice=False
-):
+def extract_8_dishes_to_frame_folders(video_path, out_root, num_frames, dish_to_class, even_slice=False):
     """
     Writes frames into: out_root/<ClassName>/frames_<video-stem>_dishK/frame_XXXX.png
     Divides video into 8 even regions (4 columns, 2 rows) with 5% tolerance padding.
     Returns total sequences written.
     """
+
     def slice_evenly():
         cols = 4
         rows = 2
         dish_w = frame_w // cols
         dish_h = frame_h // rows
-        tolerance = 0.1  
+        tolerance = 0.1
         pad_w = int(dish_w * tolerance)
         pad_h = int(dish_h * tolerance)
 
@@ -254,18 +222,13 @@ def extract_8_dishes_to_frame_folders(
             x, y, w, h = even_rois[i]
             for f_roi in detected_rois:
                 fx, fy, fw, fh = f_roi
-                if (
-                    abs(x - fx) < tolerance
-                    and abs(y - fy) < tolerance
-                    and abs(w - fw) < tolerance
-                    and abs(h - fh) < tolerance
-                ):
+                if abs(x - fx) < tolerance and abs(y - fy) < tolerance and abs(w - fw) < tolerance and abs(h - fh) < tolerance:
                     replaced.append(f_roi)
                     break
             else:
                 replaced.append(even_rois[i])
         return replaced
-    
+
     os.makedirs(out_root, exist_ok=True)
     cap = cv2.VideoCapture(video_path)
     total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -279,13 +242,9 @@ def extract_8_dishes_to_frame_folders(
 
     even_boxes = slice_evenly()
     if not even_slice:
-        roi_boxes = find_shapes_first_frame(
-            video_path, output_image_name="first_frame_ROIs.jpg"
-        )
+        roi_boxes = find_shapes_first_frame(video_path, output_image_name="first_frame_ROIs.jpg")
         if roi_boxes is None or len(roi_boxes) < 8:
-            logger.warning(
-                "Insufficient ROIs detected, falling back to even slicing."
-            )
+            logger.warning("Insufficient ROIs detected, falling back to even slicing.")
             if len(roi_boxes):
                 logger.info(f"Detected roi_boxes: {roi_boxes}. Inserting missing boxes.")
                 roi_boxes = replace_even(even_boxes, roi_boxes)
@@ -297,7 +256,7 @@ def extract_8_dishes_to_frame_folders(
 
         roi_boxes = roi_boxes[:8]
         logger.info(f"Detected roi_boxes: {roi_boxes}")
-    
+
     logger.info(f"Final roi_boxes used for extraction: {roi_boxes}")
 
     stem = os.path.splitext(os.path.basename(video_path))[0]
@@ -305,13 +264,8 @@ def extract_8_dishes_to_frame_folders(
     logger.info(f"Inferring dish classes from video name: {lower_name}")
 
     if "etoh" in lower_name:  # this is to get ones that only have ethanol
-        logger.info(
-            f"Detected 'etoh' in filename, assigning ethanol dishes to Ethanol"
-        )
-        dish_to_class = {
-            k: ("Ethanol" if v.startswith("Ethanol") else v)
-            for k, v in dish_to_class.items()
-        }
+        logger.info(f"Detected 'etoh' in filename, assigning ethanol dishes to Ethanol")
+        dish_to_class = {k: ("Ethanol" if v.startswith("Ethanol") else v) for k, v in dish_to_class.items()}
 
     fps = cap.get(cv2.CAP_PROP_FPS)
     offset_seconds = [170.0, 155.0, 95.0, 60.0, 22.5, 0.0, 0.0, 0.0]
@@ -320,10 +274,7 @@ def extract_8_dishes_to_frame_folders(
     logger.info(f"Using start offsets per dish: {start_offsets}")
 
     idxs_per_dish = [
-        sample_frame_indices(
-            total - start_offsets[k], num_frames, start=start_offsets[k]
-        )
-        for k in range(len(roi_boxes))
+        sample_frame_indices(total - start_offsets[k], num_frames, start=start_offsets[k]) for k in range(len(roi_boxes))
     ]
     targets = []
     logger.info(f"Writing frames to {out_root} ...")
@@ -366,20 +317,14 @@ def train_one_video(
     """
     Minimal train loop (per video) that reuses your dataset and settings.
     """
-    dataset = FrameDataset(
-        data_dir, num_frames=num_frames, transform=transform
-    )
+    dataset = FrameDataset(data_dir, num_frames=num_frames, transform=transform)
     if len(dataset) == 0:
-        logger.warning(
-            f"No sequences found in {data_dir}, skipping training."
-        )
+        logger.warning(f"No sequences found in {data_dir}, skipping training.")
         return 0, 0.0
 
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
     criterion = nn.CrossEntropyLoss()
-    logger.info(
-        f"Training on {len(dataset)} sequences for {epochs} epochs."
-    )
+    logger.info(f"Training on {len(dataset)} sequences for {epochs} epochs.")
 
     model.train()
     total, correct, running = 0, 0, 0.0
@@ -416,9 +361,7 @@ def main():
 
     device = config.DEVICE
     model = CNNLSTM(num_classes=config.NUM_CLASSES).to(device)
-    optimizer = torch.optim.Adam(
-        model.parameters(), lr=config.LEARNING_RATE
-    )
+    optimizer = torch.optim.Adam(model.parameters(), lr=config.LEARNING_RATE)
 
     if os.path.exists(config.CHECKPOINT_PATH):
         ckpt = torch.load(config.CHECKPOINT_PATH, map_location=device)
@@ -444,7 +387,7 @@ def main():
                 out_root=tmp_data,
                 num_frames=config.NUM_FRAMES,
                 dish_to_class=config.DISH_TO_CLASS,
-                even_slice=False
+                even_slice=False,
             )
 
             logger.info("Training on this videos generated sequences")
@@ -457,9 +400,7 @@ def main():
                 batch_size=config.BATCH_SIZE,
                 epochs=config.EPOCHS_PER_VIDEO,
             )
-            logger.info(
-                f"Trained on {nseq} sequences | approx acc: {acc:.1f}%"
-            )
+            logger.info(f"Trained on {nseq} sequences | approx acc: {acc:.1f}%")
 
             torch.save(
                 {

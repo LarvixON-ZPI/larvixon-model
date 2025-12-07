@@ -57,9 +57,7 @@ class SmartVideoExtractor:
         if self.use_detected_rois:
             logger.info("Using automatic petri dish detection...")
             try:
-                dish_rois = detect_dishes_in_video(
-                    video_path, detection_frame, save_detection_image=True
-                )
+                dish_rois = detect_dishes_in_video(video_path, detection_frame, save_detection_image=True)
             except Exception as e:
                 logger.warning(f"Contour-based detection failed: {e}")
                 dish_rois = []
@@ -90,11 +88,7 @@ class SmartVideoExtractor:
             dish_to_class = config.DISH_TO_CLASS
 
         logger.info("Detecting larvae appearance...")
-        larvae_start_frames = (
-            self.larvae_detector.detect_larvae_appearance(
-                video_path, dish_rois, max_larvae_check_frames
-            )
-        )
+        larvae_start_frames = self.larvae_detector.detect_larvae_appearance(video_path, dish_rois, max_larvae_check_frames)
 
         cap = cv2.VideoCapture(video_path)
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -103,14 +97,10 @@ class SmartVideoExtractor:
         video_stem = os.path.splitext(os.path.basename(video_path))[0]
         sequences_created = 0
 
-        for dish_idx, (dish_roi, start_frame) in enumerate(
-            zip(dish_rois, larvae_start_frames)
-        ):
+        for dish_idx, (dish_roi, start_frame) in enumerate(zip(dish_rois, larvae_start_frames)):
 
             if dish_idx not in dish_to_class:
-                logger.warning(
-                    f"No class mapping for dish {dish_idx}, skipping"
-                )
+                logger.warning(f"No class mapping for dish {dish_idx}, skipping")
                 continue
 
             class_name = dish_to_class[dish_idx]
@@ -124,31 +114,19 @@ class SmartVideoExtractor:
 
             end_frame = total_frames
 
-            quality_frames = self.larvae_detector.get_quality_frames(
-                video_path, dish_roi, start_frame, end_frame, num_frames
-            )
+            quality_frames = self.larvae_detector.get_quality_frames(video_path, dish_roi, start_frame, end_frame, num_frames)
 
             if not quality_frames:
-                logger.warning(
-                    f"No quality frames found for dish {dish_idx}"
-                )
+                logger.warning(f"No quality frames found for dish {dish_idx}")
                 continue
 
-            extracted_count = self._extract_frames_from_indices(
-                video_path, dish_roi, quality_frames, seq_dir
-            )
+            extracted_count = self._extract_frames_from_indices(video_path, dish_roi, quality_frames, seq_dir)
 
             if extracted_count > 0:
                 sequences_created += 1
-                logger.info(
-                    f"Created sequence for dish {dish_idx} "
-                    f"({class_name}): {extracted_count} frames"
-                )
+                logger.info(f"Created sequence for dish {dish_idx} " f"({class_name}): {extracted_count} frames")
 
-        logger.info(
-            f"Intelligent extraction complete: "
-            f"{sequences_created} sequences created"
-        )
+        logger.info(f"Intelligent extraction complete: " f"{sequences_created} sequences created")
         return sequences_created
 
     def _extract_frames_from_indices(
@@ -222,9 +200,7 @@ class SmartVideoExtractor:
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-        sample_frames = np.linspace(
-            0, total_frames - 1, min(50, total_frames), dtype=int
-        )
+        sample_frames = np.linspace(0, total_frames - 1, min(50, total_frames), dtype=int)
 
         brightness_values = []
         contrast_values = []
@@ -255,9 +231,7 @@ class SmartVideoExtractor:
         cap.release()
 
         try:
-            dish_rois = detect_dishes_in_video(
-                video_path, 0, save_detection_image=False
-            )
+            dish_rois = detect_dishes_in_video(video_path, 0, save_detection_image=False)
             num_detected_dishes = len(dish_rois)
         except Exception as e:
             logger.warning(f"Failed to detect dishes: {e}")
@@ -275,15 +249,11 @@ class SmartVideoExtractor:
                 "brightness_std": np.std(brightness_values),
                 "avg_contrast": np.mean(contrast_values),
                 "contrast_std": np.std(contrast_values),
-                "avg_motion": (
-                    np.mean(motion_values) if motion_values else 0
-                ),
+                "avg_motion": (np.mean(motion_values) if motion_values else 0),
             },
             "detection_results": {
                 "num_dishes_detected": num_detected_dishes,
-                "expected_dishes": (
-                    8 if self.use_detected_rois else len(config.ROI_BOXES)
-                ),
+                "expected_dishes": (8 if self.use_detected_rois else len(config.ROI_BOXES)),
             },
             "recommendations": self._generate_recommendations(
                 float(np.mean(brightness_values)),
@@ -294,40 +264,25 @@ class SmartVideoExtractor:
 
         return analysis
 
-    def _generate_recommendations(
-        self, brightness: float, contrast: float, num_detected: int
-    ) -> List[str]:
+    def _generate_recommendations(self, brightness: float, contrast: float, num_detected: int) -> List[str]:
         """Generate recommendations based on analysis."""
         recommendations = []
 
         if brightness < 50:
-            recommendations.append(
-                "Video appears too dark - consider increasing lighting"
-            )
+            recommendations.append("Video appears too dark - consider increasing lighting")
         elif brightness > 200:
-            recommendations.append(
-                "Video appears overexposed - consider reducing lighting"
-            )
+            recommendations.append("Video appears overexposed - consider reducing lighting")
 
         if contrast < 20:
-            recommendations.append(
-                "Low contrast detected - may affect detection quality"
-            )
+            recommendations.append("Low contrast detected - may affect detection quality")
 
         if num_detected < 4:
-            recommendations.append(
-                "Few dishes detected - check detection parameters "
-                "or use manual ROIs"
-            )
+            recommendations.append("Few dishes detected - check detection parameters " "or use manual ROIs")
         elif num_detected > 12:
-            recommendations.append(
-                "Many dishes detected - may have false positives"
-            )
+            recommendations.append("Many dishes detected - may have false positives")
 
         if not recommendations:
-            recommendations.append(
-                "Video quality appears suitable for processing"
-            )
+            recommendations.append("Video quality appears suitable for processing")
 
         return recommendations
 
@@ -353,6 +308,4 @@ def extract_video_with_smart_detection(
     - Number of sequences created
     """
     extractor = SmartVideoExtractor(use_detected_rois=use_auto_detection)
-    return extractor.extract_video_intelligently(
-        video_path, output_dir, num_frames, dish_to_class
-    )
+    return extractor.extract_video_intelligently(video_path, output_dir, num_frames, dish_to_class)

@@ -7,9 +7,7 @@ load_dotenv()
 
 FRAME_DIR = os.getenv("FRAME_DIR", "inference_frames/seq1")
 DATA_DIR = os.getenv("DATA_DIR", "data/")
-BATCH_SIZE = int(
-    os.getenv("BATCH_SIZE", "2")
-)  # Adjust based on your GPU mem, I found the VRAM / 2 works well
+BATCH_SIZE = int(os.getenv("BATCH_SIZE", "2"))  # Adjust based on your GPU mem, I found the VRAM / 2 works well
 NUM_FRAMES = int(os.getenv("NUM_FRAMES", "190"))
 NUM_CLASSES = int(os.getenv("NUM_CLASSES", "4"))
 MODEL_PATH = os.getenv("MODEL_PATH", "models/cnn_lstm_final.pt")
@@ -65,6 +63,4 @@ with open("roi_boxes.json") as f:
 # ]
 
 if len(CLASS_NAMES) != NUM_CLASSES:
-    raise ValueError(
-        f"Number of class names ({len(CLASS_NAMES)}) doesn't match NUM_CLASSES ({NUM_CLASSES})"
-    )
+    raise ValueError(f"Number of class names ({len(CLASS_NAMES)}) doesn't match NUM_CLASSES ({NUM_CLASSES})")

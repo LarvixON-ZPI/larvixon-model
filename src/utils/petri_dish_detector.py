@@ -105,10 +105,7 @@ class PetriDishDetector:
             x, y, w, h = cv2.boundingRect(contour)
             aspect_ratio = float(w) / h
 
-            if (
-                aspect_ratio < self.min_aspect_ratio
-                or aspect_ratio > self.max_aspect_ratio
-            ):
+            if aspect_ratio < self.min_aspect_ratio or aspect_ratio > self.max_aspect_ratio:
                 continue
 
             rect_area = w * h
@@ -127,9 +124,7 @@ class PetriDishDetector:
 
         return valid_contours
 
-    def validate_dish_appearance(
-        self, frame: np.ndarray, roi: Tuple[int, int, int, int]
-    ) -> bool:
+    def validate_dish_appearance(self, frame: np.ndarray, roi: Tuple[int, int, int, int]) -> bool:
         """
         Validate that the ROI actually looks like a petri dish.
 
@@ -186,17 +181,13 @@ class PetriDishDetector:
 
         edges = self.detect_edges(gray)
 
-        contours, _ = cv2.findContours(
-            edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-        )
+        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         logger.info(f"Found {len(contours)} total contours")
 
         valid_contours = self.filter_contours(list(contours))
 
-        logger.info(
-            f"Found {len(valid_contours)} valid contours after filtering"
-        )
+        logger.info(f"Found {len(valid_contours)} valid contours after filtering")
 
         detected_dishes = []
         for contour in valid_contours:
@@ -210,23 +201,15 @@ class PetriDishDetector:
 
             roi = (x, y, w, h)
 
-            if validate_appearance and not self.validate_dish_appearance(
-                frame, roi
-            ):
-                logger.debug(
-                    f"Rejected ROI {roi} due to appearance " f"validation"
-                )
+            if validate_appearance and not self.validate_dish_appearance(frame, roi):
+                logger.debug(f"Rejected ROI {roi} due to appearance " f"validation")
                 continue
 
             detected_dishes.append(roi)
 
-        filtered_dishes = self.remove_overlapping_detections(
-            detected_dishes, min_distance
-        )
+        filtered_dishes = self.remove_overlapping_detections(detected_dishes, min_distance)
 
-        logger.info(
-            f"Final detection result: {len(filtered_dishes)} petri dishes"
-        )
+        logger.info(f"Final detection result: {len(filtered_dishes)} petri dishes")
 
         return filtered_dishes
 
@@ -259,10 +242,7 @@ class PetriDishDetector:
             too_close = False
             for j in keep:
                 other_center = centers[j]
-                distance = np.sqrt(
-                    (center[0] - other_center[0]) ** 2
-                    + (center[1] - other_center[1]) ** 2
-                )
+                distance = np.sqrt((center[0] - other_center[0]) ** 2 + (center[1] - other_center[1]) ** 2)
                 if distance < min_distance:
                     too_close = True
                     break
@@ -292,9 +272,7 @@ class PetriDishDetector:
         vis_frame = frame.copy()
 
         for i, (x, y, w, h) in enumerate(detections):
-            cv2.rectangle(
-                vis_frame, (x, y), (x + w, y + h), (0, 255, 0), 2
-            )
+            cv2.rectangle(vis_frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
             label = f"Dish {i}"
             cv2.putText(

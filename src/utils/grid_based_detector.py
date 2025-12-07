@@ -33,9 +33,7 @@ class GridBasedPetriDetector:
         self.padding_ratio = padding_ratio
         self.min_variance_threshold = min_variance_threshold
 
-    def detect_grid_layout(
-        self, frame: np.ndarray
-    ) -> List[Tuple[int, int, int, int]]:
+    def detect_grid_layout(self, frame: np.ndarray) -> List[Tuple[int, int, int, int]]:
         """
         Detect petri dishes using grid layout assumption.
 
@@ -71,19 +69,13 @@ class GridBasedPetriDetector:
                 roi_h = min(roi_h, height - roi_y)
 
                 if roi_w > 0 and roi_h > 0:
-                    if self._validate_roi_content(
-                        frame, (roi_x, roi_y, roi_w, roi_h)
-                    ):
+                    if self._validate_roi_content(frame, (roi_x, roi_y, roi_w, roi_h)):
                         detected_rois.append((roi_x, roi_y, roi_w, roi_h))
 
-        logger.info(
-            f"Grid-based detection found {len(detected_rois)} valid regions"
-        )
+        logger.info(f"Grid-based detection found {len(detected_rois)} valid regions")
         return detected_rois
 
-    def _validate_roi_content(
-        self, frame: np.ndarray, roi: Tuple[int, int, int, int]
-    ) -> bool:
+    def _validate_roi_content(self, frame: np.ndarray, roi: Tuple[int, int, int, int]) -> bool:
         """
         Validate that ROI contains meaningful content (not empty space).
 
@@ -110,7 +102,7 @@ class GridBasedPetriDetector:
 
         if variance < self.min_variance_threshold:
             return False
-            
+
         return self._check_for_dish_patterns(gray_roi)
 
     def _check_for_dish_patterns(self, gray_roi: np.ndarray) -> bool:
@@ -142,7 +134,7 @@ class GridBasedPetriDetector:
         edges = cv2.Canny(blurred, 30, 100)
         edge_density = np.count_nonzero(edges) / edges.size
 
-        if edge_density > 0.02: 
+        if edge_density > 0.02:
             return True
 
         h, w = gray_roi.shape
@@ -153,7 +145,7 @@ class GridBasedPetriDetector:
         if abs(center_var - total_var) > 50:
             return True
 
-        return True 
+        return True
 
 
 class AdaptiveGridDetector:
@@ -171,9 +163,7 @@ class AdaptiveGridDetector:
             {"rows": 1, "cols": 8, "name": "1x8_line"},
         ]
 
-    def detect_best_layout(
-        self, frame: np.ndarray
-    ) -> Tuple[List[Tuple[int, int, int, int]], str]:
+    def detect_best_layout(self, frame: np.ndarray) -> Tuple[List[Tuple[int, int, int, int]], str]:
         """
         Try multiple grid configurations and return the best one.
 
@@ -191,24 +181,20 @@ class AdaptiveGridDetector:
             detector = GridBasedPetriDetector(
                 grid_rows=config["rows"],
                 grid_cols=config["cols"],
-                padding_ratio=0.15, 
+                padding_ratio=0.15,
             )
 
             detections = detector.detect_grid_layout(frame)
             score = self._score_detections(frame, detections)
 
-            logger.info(
-                f"Grid {config['name']}: {len(detections)} detections, score: {score:.2f}"
-            )
+            logger.info(f"Grid {config['name']}: {len(detections)} detections, score: {score:.2f}")
 
             if score > best_score:
                 best_score = score
                 best_detections = detections
                 best_config_name = config["name"]
 
-        logger.info(
-            f"Best grid configuration: {best_config_name} with {len(best_detections)} detections"
-        )
+        logger.info(f"Best grid configuration: {best_config_name} with {len(best_detections)} detections")
         return best_detections, best_config_name
 
     def _score_detections(
@@ -247,12 +233,10 @@ class AdaptiveGridDetector:
             variance_score = min(variance / 1000, 1.0)
 
             area = w * h
-            size_score = min(area / 50000, 1.0)  
+            size_score = min(area / 50000, 1.0)
 
             aspect_ratio = w / h
-            ar_score = 1.0 - abs(
-                aspect_ratio - 1.0
-            )  
+            ar_score = 1.0 - abs(aspect_ratio - 1.0)
             ar_score = max(0, ar_score)
 
             roi_score = (variance_score + size_score + ar_score) / 3
@@ -284,9 +268,7 @@ def detect_dishes_with_grid(
         vis_frame = frame.copy()
 
         for i, (x, y, w, h) in enumerate(detections):
-            cv2.rectangle(
-                vis_frame, (x, y), (x + w, y + h), (0, 255, 0), 3
-            )
+            cv2.rectangle(vis_frame, (x, y), (x + w, y + h), (0, 255, 0), 3)
             cv2.putText(
                 vis_frame,
                 f"Dish {i+1}",
@@ -352,12 +334,8 @@ def detect_dishes_in_video_grid(
 
     if save_detection_image:
         video_name = os.path.splitext(os.path.basename(video_path))[0]
-        output_path = (
-            f"grid_detection_{video_name}_frame_{frame_index}.jpg"
-        )
+        output_path = f"grid_detection_{video_name}_frame_{frame_index}.jpg"
     else:
         output_path = None
 
-    return detect_dishes_with_grid(
-        frame, save_detection_image, output_path
-    )
+    return detect_dishes_with_grid(frame, save_detection_image, output_path)
