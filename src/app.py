@@ -45,6 +45,16 @@ async def predict(file: UploadFile = File(...)):
         with open(video_path, "wb") as f:
             contents = await file.read()
             f.write(contents)
+        
+        logger.info("Checking for edges in the video...")
+        roi_data = find_shapes_first_frame(video_path)
+        
+        if roi_data is None or len(roi_data) == 0:
+            logger.warning("No edges found in the video")
+            return {"metadata": "Incorrect video. Make sure the video contains larvae in petri dish"}
+        
+        logger.info(f"Found {len(roi_data)} ROI(s) in the video")
+        
         test_dir = "data/"
         frames_dir = os.path.join(test_dir, "frames")
         video_to_fixed_frames(video_path, frames_dir, NUM_FRAMES)
@@ -114,7 +124,7 @@ async def train(
 
     with tempfile.TemporaryDirectory() as temp_dir:
         video_path = os.path.join(temp_dir, "video.mp4")
-        from scripts.train_real_data import train_one_video
+        from scripts.train import train_one_video
 
         train_one_video(
             model,
